@@ -1,0 +1,20 @@
+[server]
+host = "0.0.0.0"
+port = 9090
+
+[data]
+ruas_path = "data/ruas.json"
+bairros_path = "data/bairros.json"
+extras_path = "data/ruas_extras.json"   # ← NOVA LINHA
+pedidos_path = "data/pedidos.json"
+
+[tiles]
+dir = "tiles"
+arquivo = "minha-cidade.pmtiles"
+
+[web]
+dir = "web"
+
+[busca]
+min_caracteres = 2
+limite_resultados = 20

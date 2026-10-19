@@ -1,0 +1,291 @@
+basePath: /
+definitions:
+  backend.Pedido:
+    properties:
+      accuracy_m:
+        type: number
+      bairro:
+        type: string
+      bairro_detectado:
+        description: resultado do geocode
+        type: string
+      cliente_nome:
+        type: string
+      complemento:
+        type: string
+      confianca_geo:
+        type: number
+      criado_em:
+        type: string
+      fonte_coord:
+        description: '"gps", "pin_mapa", "manual"'
+        type: string
+      id:
+        type: string
+      itens:
+        items:
+          $ref: '#/definitions/main.Item'
+        type: array
+      lat:
+        type: number
+      lon:
+        type: number
+      numero:
+        type: string
+      referencia:
+        type: string
+      rua:
+        type: string
+      telefone:
+        type: string
+      total_centavos:
+        type: integer
+    required:
+    - bairro
+    - rua
+    type: object
+  main.Item:
+    properties:
+      nome:
+        type: string
+      preco_centavos:
+        type: integer
+      qtd:
+        type: integer
+    type: object
+  main.NovaRua:
+    properties:
+      bairro:
+        type: string
+      cep:
+        type: string
+      lat:
+        type: number
+      lon:
+        type: number
+      nome:
+        type: string
+    required:
+    - lat
+    - lon
+    - nome
+    type: object
+  main.RotaRequest:
+    properties:
+      destino_lat:
+        type: number
+      destino_lon:
+        type: number
+      origem_lat:
+        type: number
+      origem_lon:
+        type: number
+    required:
+    - destino_lat
+    - destino_lon
+    - origem_lat
+    - origem_lon
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: suporte@exemplo.com
+    name: Suporte
+  description: API de ruas, bairros e administração.
+  license:
+    name: MIT
+  title: API Mapa Cidade
+  version: "1.0"
+paths:
+  /admin/ruas:
+    get:
+      description: Retorna todas as ruas com bairro_fonte=manual.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+      summary: Lista ruas adicionadas manualmente
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Cadastra nome, bairro, coordenadas e CEP de uma rua nova.
+        Salva em data/ruas_extras.json (persistente entre reinícios).
+      parameters:
+      - description: Dados da rua
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.NovaRua'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Adiciona uma rua manualmente
+      tags:
+      - admin
+  /api/bairros:
+    get:
+      description: Retorna bairros com campo "ruas" recalculado em tempo real.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+      summary: Lista bairros com contagem de ruas
+      tags:
+      - bairros
+  /api/geocode-reverso:
+    get:
+      description: Recebe lat/lon e retorna o bairro mais provável, baseado nas ruas
+        mais próximas.
+      parameters:
+      - description: Latitude
+        format: float64
+        in: query
+        name: lat
+        required: true
+        type: number
+      - description: Longitude
+        format: float64
+        in: query
+        name: lon
+        required: true
+        type: number
+      - description: 'Raio de busca em metros (default: 2000)'
+        format: float64
+        in: query
+        name: raio
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Geocode reverso (coordenada → bairro)
+      tags:
+      - geocode
+  /api/pedidos:
+    post:
+      consumes:
+      - application/json
+      description: Salva o pedido com localização. Os dados alimentam a base de ruas.
+      parameters:
+      - description: Dados do pedido
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/backend.Pedido'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Cria um pedido (com coleta de dados)
+      tags:
+      - pedidos
+  /api/rota:
+    post:
+      consumes:
+      - application/json
+      description: Chama Valhalla, retorna polyline + instruções + ETA
+      parameters:
+      - description: Origem e destino
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/main.RotaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Calcula rota
+      tags:
+      - navegacao
+  /api/ruas:
+    get:
+      description: Busca ruas por nome (normalizado, sem acento).
+      parameters:
+      - description: Termo de busca
+        in: query
+        name: busca
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Busca ruas
+      tags:
+      - ruas
+  /api/saude:
+    get:
+      description: Retorna status, contagem de ruas e bairros.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Saúde da API
+      tags:
+      - sistema
+swagger: "2.0"

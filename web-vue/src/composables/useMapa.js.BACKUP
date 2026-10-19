@@ -1,0 +1,303 @@
+import { shallowRef, markRaw } from 'vue';
+import * as maplibregl from 'maplibre-gl';
+import { Protocol } from 'pmtiles';
+import { layers, namedFlavor } from '@protomaps/basemaps';
+import { setWorkerUrl } from 'maplibre-gl';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+// Configura o worker do MapLibre para o Vite
+setWorkerUrl(workerUrl);
+
+export function useMapa() {
+    // ⚠️ shallowRef e markRaw evitam que o Vue torne o mapa reativo (bug do Proxy/rgb)
+    const mapa = shallowRef(null);
+    const marcadorPosicao = shallowRef(null);
+    const marcadorDestino = shallowRef(null);
+
+    let seguirPosicao = false;
+    let lastBearing = 0;
+    let lastPosicao = null;
+
+    function inicializar(containerId) {
+        if (mapa.value) return mapa.value;
+
+        try {
+            const protocol = new Protocol();
+            maplibregl.addProtocol('pmtiles', protocol.tile);
+        } catch (e) {
+            if (!e.message?.includes('already')) console.warn(e);
+        }
+
+        try {
+            mapa.value = markRaw(new maplibregl.Map({
+                container: containerId,
+                style: {
+                    version: 8,
+                    // ✅ URLs corretas dos assets do Protomaps
+                    glyphs: 'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf',
+                    sprite: 'https://protomaps.github.io/basemaps-assets/sprites/v4/light',
+                    sources: {
+                        protomaps: {
+                            type: 'vector',
+                            url: 'pmtiles:///tiles/regiao-sul-proto.pmtiles', // Seu arquivo gerado
+                            maxzoom: 16,
+                        },
+                    },
+                    layers: [
+                        ...layers('protomaps', namedFlavor('light'), { lang: 'pt' }),
+                    ],
+                },
+                center: [-51.46, -23.55],
+                zoom: 15,
+                maxZoom: 19,
+                minZoom: 6,
+                pitch: 45,
+                bearing: 0,
+                maxBounds: [[-57.65, -33.75], [-47.90, -22.50]],
+                pitchWithRotate: true,
+                dragRotate: true,
+                touchPitch: true,
+            }));
+        } catch (e) {
+            console.error('❌ Erro ao criar mapa:', e);
+            return null;
+        }
+
+        if (!mapa.value) return null;
+
+        // Handlers
+        mapa.value.on('load', () => console.log('✅ Mapa carregado'));
+        mapa.value.on('error', (e) => console.error('❌ Erro MapLibre:', e.error || e));
+
+        // Controles de navegação (Bússola + Zoom)
+        mapa.value.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
+
+        return mapa.value;
+    }
+
+    // ─── NAVEGAÇÃO E FOLLOW MODE ──────────────────────────────
+
+    function iniciarFollow() {
+        seguirPosicao = true;
+    }
+
+    function pararFollow() {
+        seguirPosicao = false;
+    }
+
+    function atualizarPosicaoComHeading(lat, lon) {
+        if (!mapa.value) return;
+        const lngLat = [lon, lat];
+
+        // Atualiza o heading apenas se moveu mais de 3 metros
+        if (lastPosicao) {
+            const dist = haversine(lastPosicao.lat, lastPosicao.lon, lat, lon);
+            if (dist > 3) {
+                lastBearing = calcularBearing(lastPosicao.lat, lastPosicao.lon, lat, lon);
+            }
+        }
+        lastPosicao = { lat, lon };
+
+        // Atualiza o marcador na tela
+        atualizarPosicao(lat, lon, lastBearing);
+
+        // Se estiver em modo "follow", gira e inclina o mapa
+        if (seguirPosicao) {
+            mapa.value.easeTo({
+                center: lngLat,
+                bearing: lastBearing,
+                pitch: 60,
+                zoom: 17,
+                duration: 800,
+            });
+        }
+    }
+
+    function calcularBearing(lat1, lon1, lat2, lon2) {
+        const toRad = Math.PI / 180, toDeg = 180 / Math.PI;
+        const φ1 = lat1 * toRad, φ2 = lat2 * toRad;
+        const Δλ = (lon2 - lon1) * toRad;
+        const y = Math.sin(Δλ) * Math.cos(φ2);
+        const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+        return (Math.atan2(y, x) * toDeg + 360) % 360;
+    }
+
+    function haversine(lat1, lon1, lat2, lon2) {
+        const R = 6371000, toRad = Math.PI / 180;
+        const φ1 = lat1 * toRad, φ2 = lat2 * toRad;
+        const Δφ = (lat2 - lat1) * toRad, Δλ = (lon2 - lon1) * toRad;
+        const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+        return 2 * R * Math.asin(Math.sqrt(a));
+    }
+
+    // ─── MARCADORES ───────────────────────────────────────────
+
+    function atualizarPosicao(lat, lon, heading = 0) {
+        if (!mapa.value) return;
+        const lngLat = [lon, lat];
+
+        if (!marcadorPosicao.value) {
+            const el = document.createElement('div');
+            el.innerHTML = `
+                <div style="
+                    width: 32px; height: 32px;
+                    background: #f59e0b;
+                    border: 3px solid #fff;
+                    border-radius: 50%;
+                    display: flex; align-items: center; justify-content: center;
+                    font-size: 18px; color: #fff;
+                    box-shadow: 0 2px 8px rgba(0,0,0,.4);
+                    transform: rotate(${heading}deg);
+                    transition: transform .3s ease;
+                ">▲</div>
+            `;
+            marcadorPosicao.value = markRaw(new maplibregl.Marker({ element: el })
+                .setLngLat(lngLat)
+                .addTo(mapa.value));
+        } else {
+            marcadorPosicao.value.setLngLat(lngLat);
+            const seta = marcadorPosicao.value.getElement()?.querySelector('div');
+            if (seta) seta.style.transform = `rotate(${heading}deg)`;
+        }
+    }
+
+    function marcarDestino(lat, lon) {
+        if (!mapa.value) return;
+        if (marcadorDestino.value) marcadorDestino.value.remove();
+
+        const el = document.createElement('div');
+        el.innerHTML = `
+            <div style="
+                width: 28px; height: 28px;
+                background: #dc2626;
+                border: 3px solid #fff;
+                border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 14px;
+                box-shadow: 0 2px 8px rgba(0,0,0,.4);
+            ">📍</div>
+        `;
+
+        marcadorDestino.value = markRaw(new maplibregl.Marker({ element: el })
+            .setLngLat([lon, lat])
+            .addTo(mapa.value));
+    }
+
+    // ─── DESENHO DA ROTA ──────────────────────────────────────
+
+    function desenharRota(polylineEncoded) {
+        if (!mapa.value || !polylineEncoded) return;
+
+        const coords = decodificaPolyline(polylineEncoded);
+
+        if (coords.length === 0) {
+            console.warn('[ROTA] Nenhuma coordenada decodificada');
+            return;
+        }
+
+        console.log('[ROTA] Pontos:', coords.length, '| Início:', coords[0], '| Fim:', coords[coords.length - 1]);
+
+        // Limpa a rota anterior, se existir
+        if (mapa.value.getSource('rota')) {
+            ['rota-linha', 'rota-casing'].forEach(id => {
+                if (mapa.value.getLayer(id)) mapa.value.removeLayer(id);
+            });
+            mapa.value.removeSource('rota');
+        }
+
+        // Adiciona o GeoJSON da rota
+        mapa.value.addSource('rota', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: coords }
+            },
+        });
+
+        // 1. Casing (borda branca)
+        mapa.value.addLayer({
+            id: 'rota-casing',
+            type: 'line',
+            source: 'rota',
+            layout: { 'line-cap': 'round', 'line-join': 'round' }, // ✅ Removido line-pitch-alignment
+            paint: { 'line-color': '#ffffff', 'line-width': 14, 'line-opacity': 0.95 },
+        });
+
+        // 2. Linha azul principal
+        mapa.value.addLayer({
+            id: 'rota-linha',
+            type: 'line',
+            source: 'rota',
+            layout: { 'line-cap': 'round', 'line-join': 'round' }, // ✅ Removido line-pitch-alignment
+            paint: { 'line-color': '#4dabf7', 'line-width': 10, 'line-opacity': 1 },
+        });
+
+        // Traz a rota para cima de tudo
+        if (mapa.value.getLayer('rota-casing')) mapa.value.moveLayer('rota-casing');
+        if (mapa.value.getLayer('rota-linha')) mapa.value.moveLayer('rota-linha');
+
+        // Ajusta o zoom para caber a rota inteira na tela
+        try {
+            const bounds = new maplibregl.LngLatBounds();
+            coords.forEach(c => bounds.extend(c));
+            mapa.value.fitBounds(bounds, { padding: 60, duration: 1000, pitch: 45 });
+            console.log('[ROTA] fitBounds OK');
+        } catch (e) {
+            console.error('[ROTA] Erro no fitBounds:', e);
+            if (coords[0]) mapa.value.easeTo({ center: coords[0], zoom: 15, duration: 1000 });
+        }
+    }
+
+    function voarPara(lat, lon, zoom = 17) {
+        if (mapa.value) {
+            mapa.value.flyTo({ center: [lon, lat], zoom, pitch: 45, duration: 1200 });
+        }
+    }
+
+    // ─── DECODIFICADOR DE POLYLINE (VALHALLA) ─────────────────
+
+    function decodificaPolyline(encoded) {
+        let index = 0, lat = 0, lng = 0;
+        const coords = [];
+
+        while (index < encoded.length) {
+            let shift = 0, result = 0, byte;
+
+            // Decodifica Latitude
+            do {
+                byte = encoded.charCodeAt(index++) - 63;
+                result |= (byte & 0x1f) << shift;
+                shift += 5;
+            } while (byte >= 0x20);
+            lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+            // Decodifica Longitude
+            shift = 0; result = 0;
+            do {
+                byte = encoded.charCodeAt(index++) - 63;
+                result |= (byte & 0x1f) << shift;
+                shift += 5;
+            } while (byte >= 0x20);
+            lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+            // ⚠️ CORREÇÃO CRÍTICA: Valhalla usa escala 1e6 (e não 1e5 do Google)
+            coords.push([lng / 1e6, lat / 1e6]);
+        }
+        return coords;
+    }
+
+    // ─── RETORNO ──────────────────────────────────────────────
+
+    return {
+        mapa,
+        inicializar,
+        desenharRota,
+        atualizarPosicao,
+        atualizarPosicaoComHeading,
+        marcarDestino,
+        voarPara,
+        iniciarFollow,
+        pararFollow,
+    };
+}
