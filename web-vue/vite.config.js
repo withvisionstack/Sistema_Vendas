@@ -5,8 +5,14 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     port: 5173,
-    host: '0.0.0.0',          // ✅ aceita conexões da rede local
-    allowedHosts: true,        // ✅ aceita ngrok e qualquer domínio
+    host: '0.0.0.0',
+    allowedHosts: true,
+    headers: {
+      'Cache-Control': 'no-store',   // ✅ o navegador não guarda nada em dev
+    },
+    hmr: {
+      clientPort: 443,               // ✅ hot reload pelo https do ngrok
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:9090',
@@ -19,6 +25,6 @@ export default defineConfig({
     },
   },
   build: {
-    chunkSizeWarningLimit: 1500,  // esconde aviso de chunk grande
+    chunkSizeWarningLimit: 1500,
   },
 });

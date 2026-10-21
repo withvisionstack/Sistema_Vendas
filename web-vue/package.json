@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@protomaps/basemaps": "^5.7.2",
+    "chart.js": "^4.5.1",
+    "leaflet": "^1.9.4",
     "maplibre-gl": "^6.15.0",
     "maplibre-gl-compass": "^0.3.1",
     "pmtiles": "^4.5.0",

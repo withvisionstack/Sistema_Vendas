@@ -3,17 +3,75 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Entregador - Delivery</title>
+    <title>Agil Delivery</title>
+
+    <!-- Leaflet CSS (Essencial para o mapa) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- CSS da Splash Screen (Fica embutido para carregar na hora) -->
+    <style>
+        #app-loading {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background-color: #f5f0e8; /* Cor de fundo do seu app */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui, -apple-system, sans-serif;
+            transition: opacity 0.4s ease;
+        }
+
+        .splash-logo {
+            font-size: 64px;
+            animation: pulse-burger 1.5s ease-in-out infinite;
+            margin-bottom: 16px;
+        }
+
+        .splash-titulo {
+            font-size: 24px;
+            font-weight: 800;
+            color: #dc2626; /* Vermelho do seu tema */
+            margin-bottom: 24px;
+        }
+
+        .splash-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(220, 38, 38, 0.2);
+            border-top-color: #dc2626;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes pulse-burger {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
+<!-- 1. SPLASH SCREEN (O Vue vai esconder isso quando carregar) -->
+<div id="app-loading">
+    <div class="splash-logo">🍔</div>
+    <div class="splash-titulo">Agil Delivery</div>
+    <div class="splash-spinner"></div>
+</div>
+
+<!-- 2. O APP VUE (Onde tudo é renderizado) -->
 <div id="app"></div>
 
-<!-- Leaflet + PMTiles via CDN (funciona sem build) -->
+<!-- 3. SCRIPTS EXTERNOS (Mapa) -->
+<!-- O Vue precisa que o Leaflet carregue ANTES do main.js para não dar erro -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/protomaps-leaflet@5.0.0/dist/protomaps-leaflet.js"></script>
 
-<!-- Seu app Vue -->
+<!-- 4. O SCRIPT PRINCIPAL DO VUE -->
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>

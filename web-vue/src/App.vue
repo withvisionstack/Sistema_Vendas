@@ -1,6 +1,12 @@
 <template>
-  <router-view />
+    <router-view />
+    <!-- Modal global de imagem -->
+    <ImageModal />
 </template>
+
+<script setup>
+import ImageModal from './components/cliente/ImageModal.vue';
+</script>
 
 <style>
 * { box-sizing: border-box; }
