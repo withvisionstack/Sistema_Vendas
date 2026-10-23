@@ -157,10 +157,11 @@ const router = createRouter({
         // ═══════════════════════════════════════════════════
         // ROTA 404 (OPCIONAL)
         // ═══════════════════════════════════════════════════
-        {
-            path: '/:pathMatch(.*)*',
-            redirect: '/'
-        }
+       {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('./views/NotFound.vue')
+}
     ],
     scrollBehavior(to, from, savedPosition) {
         return savedPosition || { top: 0 };
