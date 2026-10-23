@@ -541,15 +541,26 @@ function marcarEntregue() {
 
 // ✅ Salva posição no pedido (para Admin/Cliente verem no mapa)
 function salvarPosicaoNoPedido(lat, lon) {
-  if (!pedido.value) return;
-  const pedidos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-  const idx = pedidos.findIndex(p => p.id == pedido.value.id);
-  if (idx !== -1) {
-    pedidos[idx].coordenadasEntregador = { lat, lng: lon, timestamp: Date.now() };
-    localStorage.setItem('@delivery:pedidos', JSON.stringify(pedidos));
-  }
+    if (!pedido.value) return;
+    const pedidos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
+    const idx = pedidos.findIndex(p => p.id == pedido.value.id);
+    if (idx !== -1) {
+        // ✅ Pega o heading do GPS
+        const posAtual = pedidos[idx].coordenadasEntregador;
+        let heading = posAtual?.heading || 0;
+        
+        navigator.geolocation.getCurrentPosition((pos) => {
+            heading = pos.coords.heading || 0;
+            pedidos[idx].coordenadasEntregador = { 
+                lat, 
+                lng: lon, 
+                heading,  // ✅ salva o heading
+                timestamp: Date.now() 
+            };
+            localStorage.setItem('@delivery:pedidos', JSON.stringify(pedidos));
+        });
+    }
 }
-
 // ─── Navegação ─────────────────────────────────────────
 function atualizarInstrucoes(lat, lon) {
   if (!rotaAtual) return;

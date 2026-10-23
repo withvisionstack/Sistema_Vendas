@@ -10,7 +10,7 @@ pedidos_path = "data/pedidos.json"
 
 [tiles]
 dir = "tiles"
-arquivo = "minha-cidade.pmtiles"
+arquivo = "cidades-2026-10.pmtiles"
 
 [web]
 dir = "web"

@@ -122,8 +122,28 @@ const atualizarMarcadoresNoMapa = () => {
             marcadores[pedido.id].setLngLat([coord.lng, coord.lat]);
         } else {
             const el = document.createElement('div');
-            el.className = 'marcador-motoboy';
-            el.innerHTML = '🛵';
+          el.className = 'marcador-motoboy';
+                                el.innerHTML = `
+                        <div class="moto-pulse"></div>
+        <div class="moto-icone">
+        <svg viewBox="0 0 24 24" fill="white" width="20" height="20">
+            <path d="M19 7c0-1.1-.9-2-2-2h-3v2h3v2.65L13.52 14H10V9H6c-2.21 0-4 1.79-4 4v3h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4.48L19 10.35V7zM7 17c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+            <path d="M19 13c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 4c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+        </svg>
+    </div>
+`;          
+            if (marcadores[pedido.id]) {
+    marcadores[pedido.id].setLngLat([coord.lng, coord.lat]);
+    
+    // ✅ NOVO: rotaciona conforme heading (se existir)
+    const heading = pedido.coordenadasEntregador?.heading;
+    if (heading !== undefined) {
+        const icone = marcadores[pedido.id].getElement().querySelector('.moto-icone');
+        if (icone) {
+            icone.style.transform = `rotate(${heading}deg)`;
+        }
+    }
+}
 
             // Popup com dados do entregador
             const fotoEntregador = pedido.entregadorFoto
@@ -439,6 +459,47 @@ const formatarPreco = (valor) => {
     justify-content: center;
 }
 .btn-finalizar:hover { background: #b91c1c; }
+
+/* ✅ NOVO MARCADOR ESTILO IFOOD */
+:deep(.marcador-motoboy) {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    transition: all 0.5s linear;
+}
+
+:deep(.moto-icone) {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #fff;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+    z-index: 2;
+    transform-origin: center;
+    transition: transform 0.3s ease;
+}
+
+:deep(.moto-pulse) {
+    position: absolute;
+    inset: 0;
+    background: #dc2626;
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: pulse-moto 2s infinite;
+    z-index: 1;
+}
+
+@keyframes pulse-moto {
+    0% { transform: scale(1); opacity: 0.4; }
+    70% { transform: scale(1.8); opacity: 0; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
 
 :deep(.maplibregl-popup-content) {
     border-radius: 12px !important;

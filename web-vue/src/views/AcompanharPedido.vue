@@ -158,8 +158,15 @@ const adicionarMarcadorEntregador = () => {
     const entregador = entregadores.value.find(e => e.id === pedido.value.entregadorId);
     
     const el = document.createElement('div');
-    el.className = 'marcador-entregador-cliente';
-    el.innerHTML = '🛵';
+        el.innerHTML = `
+    <div class="entregador-pulse"></div>
+    <div class="entregador-icone">
+        <svg viewBox="0 0 24 24" fill="white" width="20" height="20">
+            <path d="M19 7c0-1.1-.9-2-2-2h-3v2h3v2.65L13.52 14H10V9H6c-2.21 0-4 1.79-4 4v3h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4.48L19 10.35V7zM7 17c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+            <path d="M19 13c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 4c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+        </svg>
+    </div>
+`;
 
     const popupHTML = `
         <div style="font-family: -apple-system, sans-serif; min-width: 180px; padding: 4px;">
@@ -455,21 +462,41 @@ const entregue = computed(() => pedido.value?.status === 'Entregue');
 
 /* ✅ Marcador e popup do MapLibre */
 :deep(.marcador-entregador-cliente) {
-    font-size: 28px;
-    filter: drop-shadow(0 2px 6px rgba(22, 163, 74, 0.5));
+    position: relative;
+    width: 40px;
+    height: 40px;
     cursor: pointer;
-    animation: pulseMoto 2s infinite;
-}
-@keyframes pulseMoto {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.15); }
-}
-:deep(.maplibregl-popup-content) {
-    border-radius: 12px !important;
-    padding: 12px !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
 }
 
+:deep(.entregador-icone) {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #fff;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.4);
+    z-index: 2;
+}
+
+:deep(.entregador-pulse) {
+    position: absolute;
+    inset: 0;
+    background: #16a34a;
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: pulse-entregador 2s infinite;
+    z-index: 1;
+}
+
+@keyframes pulse-entregador {
+    0% { transform: scale(1); opacity: 0.4; }
+    70% { transform: scale(1.8); opacity: 0; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
 .card-pin {
     display: flex;
     align-items: center;
