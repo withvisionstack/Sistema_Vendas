@@ -70,29 +70,40 @@
  };
 
  // ✅ Despacha o pedido com o entregador escolhido
- const despacharPedido = (pedidoId) => {
-     const entregadorId = entregadorSelecionado.value[pedidoId];
-     if (!entregadorId) {
-         return alert('Selecione um entregador antes de despachar.');
-     }
+const despacharPedido = (pedidoId) => {
+    const entregadorId = entregadorSelecionado.value[pedidoId];
+    if (!entregadorId) {
+        return alert('Selecione um entregador antes de despachar.');
+    }
 
-     const todosPedidos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-     const index = todosPedidos.findIndex(p => p.id === pedidoId);
-
-     if (index !== -1) {
-         const entregador = entregadores.value.find(e => e.id === entregadorId);
-
-         todosPedidos[index].status = 'Saiu para entrega';
-         todosPedidos[index].entregadorId = entregadorId;
-         todosPedidos[index].entregadorNome = entregador?.nome || 'Entregador';
-         todosPedidos[index].entregadorFoto = entregador?.foto || '';
-         todosPedidos[index].entregadorPlaca = entregador?.placa || '';
-
-         localStorage.setItem('@delivery:pedidos', JSON.stringify(todosPedidos));
-         window.dispatchEvent(new Event('pedidos-atualizados'));
-         carregarPedidos();
-     }
- };
+    const todosPedidos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
+    const index = todosPedidos.findIndex(p => p.id === pedidoId);
+    
+    if (index !== -1) {
+        const entregador = entregadores.value.find(e => e.id === entregadorId);
+        
+        // ✅ GERA PIN DE 4 DÍGITOS
+        const pin = Math.floor(1000 + Math.random() * 9000).toString();
+        
+        todosPedidos[index].status = 'Saiu para entrega';
+        todosPedidos[index].entregadorId = entregadorId;
+        todosPedidos[index].entregadorNome = entregador?.nome || 'Entregador';
+        todosPedidos[index].entregadorFoto = entregador?.foto || '';
+        todosPedidos[index].entregadorPlaca = entregador?.placa || '';
+        
+        // ✅ NOVOS CAMPOS DO PIN
+        todosPedidos[index].pinEntrega = pin;
+        todosPedidos[index].pinTentativas = 0;
+        todosPedidos[index].pinBloqueado = false;
+        
+        localStorage.setItem('@delivery:pedidos', JSON.stringify(todosPedidos));
+        window.dispatchEvent(new Event('pedidos-atualizados'));
+        carregarPedidos();
+        
+        // ✅ Mostra o PIN para o admin (opcional, para conferência)
+        alert(`Pedido despachado!\n\nO PIN do cliente é: ${pin}\n\nO cliente vai ver este código na tela de acompanhamento.`);
+    }
+};
 
  // ─── CLASSES E HELPERS ───
  const getStatusClass = (status) => {

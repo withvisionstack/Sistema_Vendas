@@ -19,6 +19,24 @@ const novoEntregador = ref({
     foto: ''
 });
 
+const copiarCodigo = (codigo, nome) => {
+    navigator.clipboard.writeText(codigo);
+    alert(`Código ${codigo} copiado!\n\nEnvie para ${nome} via WhatsApp.`);
+};
+
+const novoCodigo = (ent) => {
+    if (confirm(`Gerar novo código para ${ent.nome}? O código antigo deixará de funcionar.`)) {
+        const codigo = regenerarCodigo(ent.id);
+        alert(`Novo código: ${codigo}`);
+    }
+};
+
+
+
+
+
+
+
 const salvando = ref(false);
 const previewFoto = ref('');
 
@@ -212,6 +230,29 @@ const getStatusInfo = (status) => {
                             </button>
                         </div>
 
+                        <div class="codigo-acesso">
+    <div class="codigo-info">
+        <span class="codigo-label">Código de acesso:</span>
+        <span class="codigo-valor">{{ ent.codigoAcesso }}</span>
+    </div>
+    <div class="codigo-acoes">
+        <button 
+            class="btn-codigo" 
+            @click="copiarCodigo(ent.codigoAcesso, ent.nome)" 
+            title="Copiar código"
+        >
+            📋 Copiar
+        </button>
+        <button 
+            class="btn-codigo btn-regenerar" 
+            @click="novoCodigo(ent)" 
+            title="Gerar novo código"
+        >
+            🔄 Novo
+        </button>
+    </div>
+</div>
+
                         <div class="info">
                             <strong>{{ ent.nome }}</strong>
 
@@ -316,4 +357,68 @@ const getStatusInfo = (status) => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.5s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.codigo-acesso {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #fef3c7;
+    border: 1px dashed #fbbf24;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.codigo-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.codigo-label {
+    font-size: 11px;
+    color: #92400e;
+    font-weight: 600;
+}
+
+.codigo-valor {
+    font-family: 'Courier New', monospace;
+    font-weight: 800;
+    font-size: 16px;
+    color: #92400e;
+    letter-spacing: 2px;
+}
+
+.codigo-acoes {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-codigo {
+    background: #fff;
+    border: 1px solid #fbbf24;
+    color: #92400e;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-codigo:hover {
+    background: #fef3c7;
+}
+
+.btn-regenerar {
+    border-color: #dc2626;
+    color: #dc2626;
+}
+
+.btn-regenerar:hover {
+    background: #fef2f2;
+}
+
 </style>

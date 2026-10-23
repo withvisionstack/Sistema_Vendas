@@ -3,6 +3,17 @@ import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 import AdminLayout from './layouts/AdminLayout.vue';
 import { useAuth } from './composables/useAuth.js';
+import { useEntregadorAuth } from './composables/useEntregadorAuth.js'; 
+
+
+
+
+// ✅ Inicializa o sistema de autenticação
+const { inicializarSistema } = useAuth();
+inicializarSistema();
+
+
+
 
 const router = createRouter({
     history: createWebHistory(),
@@ -77,13 +88,24 @@ const router = createRouter({
         // ÁREA DO ENTREGADOR
         // ═══════════════════════════════════════════════════
         {
-            path: '/entregador',
-            component: () => import('./views/Entregador.vue')
-        },
-        {
-            path: '/entregador/:token',
-            component: () => import('./views/Entregador.vue')
-        },
+    path: '/entregador/login',
+    name: 'EntregadorLogin',
+    component: () => import('./views/EntregadorLogin.vue')
+},
+{
+    path: '/entregador/painel',
+    name: 'EntregadorPainel',
+    component: () => import('./views/EntregadorPainel.vue')
+},
+{
+    path: '/entregador/rota/:id',
+    name: 'EntregadorRota',
+    component: () => import('./views/Entregador.vue') // ← sua tela existente
+},
+{
+    path: '/entregador',
+    redirect: '/entregador/painel'
+},
 
         // ═══════════════════════════════════════════════════
         // ÁREA DO ADMIN (LAYOUT COM SIDEBAR)
@@ -144,30 +166,31 @@ const router = createRouter({
         return savedPosition || { top: 0 };
     },
 });
-
 // ═══════════════════════════════════════════════════════════
 // ✅ ROUTER GUARD: Protege todas as rotas /admin
 // ═══════════════════════════════════════════════════════════
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
     const { estaLogado } = useAuth();
+    const { entregadorLogado } = useEntregadorAuth();
 
-    // Se está tentando acessar algo em /admin (exceto o login) e não está logado
+    // Admin
     if (to.path.startsWith('/admin') && to.path !== '/admin/login') {
-        if (!estaLogado.value) {
-            next('/admin/login');
-            return;
-        }
+        if (!estaLogado.value) return '/admin/login';
     }
-
-    // Se já está logado e tenta ir para o login, redireciona para o dashboard
     if (to.path === '/admin/login' && estaLogado.value) {
-        next('/admin/dashboard');
-        return;
+        return '/admin/dashboard';
     }
 
-    next();
-});
+    // ✅ Entregador
+    if (to.path.startsWith('/entregador') && to.path !== '/entregador/login') {
+        if (!entregadorLogado.value) return '/entregador/login';
+    }
+    if (to.path === '/entregador/login' && entregadorLogado.value) {
+        return '/entregador/painel';
+    }
 
+    return true;
+});
 createApp(App).use(router).mount('#app');
 
 // ═══════════════════════════════════════════════════════════

@@ -178,7 +178,7 @@ const abrirCapaPelaLogo = (event) => {
     max-width: 180px;
     padding: 6px 12px;
     background: var(--color-accent-soft);
-    border: 1px solid #fecaca;
+    border: 1px solid #f8f3f3;
     border-radius: 16px;
     color: var(--color-accent);
     font-size: 12px;

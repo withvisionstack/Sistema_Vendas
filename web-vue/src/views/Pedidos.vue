@@ -329,7 +329,7 @@ function avancarStatus(pedido) {
 /* ═══════════════════════════════════════════════════════════ */
 /* 1. LAYOUT GERAL                                            */
 /* ═══════════════════════════════════════════════════════════ */
-.pedidos-page { min-height: 100vh; background: #f5f0e8; display: flex; flex-direction: column; padding-bottom: 40px; }
+.pedidos-page { min-height: 100vh; background: #ffffff; display: flex; flex-direction: column; padding-bottom: 40px; }
 .conteudo { flex: 1; padding: 16px; max-width: 600px; margin: 0 auto; width: 100%; }
 
 .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }

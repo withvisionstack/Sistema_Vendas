@@ -21,18 +21,23 @@ const tentarLogin = async () => {
     carregando.value = true;
     erro.value = '';
 
-    // Simula um pequeno delay (para não parecer instantâneo demais)
-    await new Promise(resolve => setTimeout(resolve, 600));
+    await new Promise(r => setTimeout(r, 500)); // Delay de 500ms (dificulta brute force rápido)
 
-    const sucesso = await login(senha.value);
+    const resultado = await login(senha.value);
 
-    if (sucesso) {
+    if (resultado.ok) {
         router.push('/admin/dashboard');
     } else {
-        erro.value = 'Senha incorreta. Tente novamente.';
+        erro.value = resultado.mensagem;
+        
+        // Mostra tentativas restantes
+        if (resultado.motivo === 'senha_errada' && resultado.tentativasRestantes) {
+            erro.value += ` (${resultado.tentativasRestantes} tentativa(s) restante(s))`;
+        }
+        
         senha.value = '';
-        carregando.value = false;
     }
+    carregando.value = false;
 };
 </script>
 
@@ -80,10 +85,14 @@ const tentarLogin = async () => {
                 </button>
             </form>
 
-            <p class="senha-info">
-                <strong>Primeiro acesso?</strong> Use a senha padrão <code>admin123</code>
-                e altere depois em Configurações.
-            </p>
+           <p class="senha-info">
+           <strong>Primeiro acesso?</strong> Use a senha padrão <code>admin123</code> e altere imediatamente em Configurações → Segurança.
+           <br>
+        <small style="color: #a1a1aa; margin-top: 8px; display: block;">
+        🔒 Após 5 tentativas erradas, o acesso é bloqueado por 15 minutos.
+    </small>
+</p>
+
         </div>
     </div>
 </template>

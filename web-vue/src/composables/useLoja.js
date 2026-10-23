@@ -14,7 +14,11 @@ const CONFIG_PADRAO = {
     emailContato: 'privacidade@hamburgueria.com.br',
     cidadeSede: 'Apucarana/PR',
     nomeDPO: 'Nome do responsável',
-    emailDPO: 'dpo@hamburgueria.com.br'
+    emailDPO: 'dpo@hamburgueria.com.br',
+    coordenadas: {
+        lat: -23.5507,
+        lng: -51.4607
+    }
 };
 
 const carregarConfiguracao = () => {
@@ -22,7 +26,11 @@ const carregarConfiguracao = () => {
         const salvo = localStorage.getItem('@delivery:loja');
         if (salvo) {
             const parsed = JSON.parse(salvo);
-            // Compatibilidade: se tinha capaUrl antiga, joga pra dentro do array capas
+            // ✅ Se já existir mas não tiver coordenadas, adiciona o padrão
+            if (!parsed.coordenadas) {
+                parsed.coordenadas = CONFIG_PADRAO.coordenadas;
+            }
+            // ... resto da lógica de capas antigas
             if (parsed.capaUrl && (!parsed.capas || parsed.capas.length === 0)) {
                 parsed.capas = [parsed.capaUrl];
                 delete parsed.capaUrl;

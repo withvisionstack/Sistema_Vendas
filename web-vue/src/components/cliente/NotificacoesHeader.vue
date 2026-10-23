@@ -130,7 +130,7 @@ const formatarData = (iso) => {
 
 .icone {
     width: 32px; height: 32px; border-radius: 50%;
-    background: #fee2e2; color: #dc2626;
+    background: #ffffff; color: #dc2626;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }

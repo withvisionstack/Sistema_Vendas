@@ -122,7 +122,7 @@ const irParaCheckout = () => {
 
 <style scoped>
 /* Seu CSS continua igual */
-.carrinho-page { min-height: 100vh; background: #f5f0e8; display: flex; flex-direction: column; padding-bottom: 100px; }
+.carrinho-page { min-height: 100vh; background: #ffffff; display: flex; flex-direction: column; padding-bottom: 100px; }
 .conteudo { flex: 1; padding: 16px; max-width: 600px; margin: 0 auto; width: 100%; }
 
 .topo { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
@@ -131,7 +131,7 @@ const irParaCheckout = () => {
 
 /* Vazio */
 .vazio { text-align: center; margin-top: 60px; }
-.vazio .emoji { font-size: 64px; margin-bottom: 16px; }
+.vazio .emoji { font-size: 64px; margin-bottom: 16px; } 
 .vazio h2 { color: #1a1a1a; margin-bottom: 8px; }
 .vazio p { color: #666; margin-bottom: 24px; }
 .btn-voltar-menu { background: #dc2626; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; }
@@ -150,7 +150,7 @@ const irParaCheckout = () => {
 
 .item-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 12px; }
 .preco { font-weight: bold; color: #1a1a1a; font-size: 16px; }
-.btn-remover { background: #fef2f2; border: none; color: #dc2626; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.btn-remover { background: #ffffff; border: none; color: #dc2626; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
 /* Footer fixo */
 .footer-carrinho { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -4px 12px rgba(0,0,0,0.05); z-index: 100; max-width: 600px; margin: 0 auto; border-radius: 16px 16px 0 0; }

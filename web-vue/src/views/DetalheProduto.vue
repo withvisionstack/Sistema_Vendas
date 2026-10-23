@@ -251,7 +251,7 @@ const adicionarAoCarrinho = () => {
 
 <style scoped>
 /* ═══════════════ SEUS ESTILOS PERMANECEM IGUAIS ═══════════════ */
-.detalhe-page { min-height: 100vh; background: #f5f0e8; display: flex; flex-direction: column; }
+.detalhe-page { min-height: 100vh; background: #ffffff; display: flex; flex-direction: column; }
 .conteudo { flex: 1; padding: 16px; max-width: 600px; margin: 0 auto; width: 100%; padding-bottom: 100px; }
 .topo { margin-bottom: 16px; }
 .btn-voltar { background: #fff; border: 1px solid #eee; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }

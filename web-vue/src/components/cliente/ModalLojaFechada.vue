@@ -65,7 +65,7 @@ const emit = defineEmits(['fechar']);
     align-items: center;
     justify-content: center;
     margin: 0 auto 20px auto;
-    border: 2px dashed #fecaca;
+    border: 2px dashed #ffffff;
 }
 
 h2 {

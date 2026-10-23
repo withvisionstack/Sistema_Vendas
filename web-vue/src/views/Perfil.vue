@@ -109,7 +109,7 @@ const voltar = () => router.back();
 </template>
 
 <style scoped>
-.perfil-page { min-height: 100vh; background: #f5f0e8; display: flex; flex-direction: column; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+.perfil-page { min-height: 100vh; background: #ffffff; display: flex; flex-direction: column; padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 .conteudo { flex: 1; padding: 16px; max-width: 600px; margin: 0 auto; width: 100%; box-sizing: border-box; }
 
 .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }

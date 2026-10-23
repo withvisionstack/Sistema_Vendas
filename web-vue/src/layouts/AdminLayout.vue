@@ -12,11 +12,13 @@ const menuItems = [
     { to: '/admin/dashboard',     label: 'Dashboard',     short: 'Dash',      icon: LayoutDashboard },
     { to: '/admin/pedidos',       label: 'Pedidos',       short: 'Pedidos',   icon: ClipboardList },
     { to: '/admin/monitoramento', label: 'Monitoramento', short: 'Mapa',      icon: MapPin },
-    { to: '/admin/entregadores',  label: 'Entregadores',  short: 'Entregas',  icon: Bike },
+    { to: '/admin/entregadores', label: 'Entregadores', short: 'Entregas', icon: Bike },
     { to: '/admin/chat',          label: 'Chat',          short: 'Chat',      icon: MessageCircle },
     { to: '/admin/produtos',      label: 'Produtos',      short: 'Produtos',  icon: Package },
     { to: '/admin/configuracoes', label: 'Configurações', short: 'Ajustes',   icon: Settings },
 ];
+
+
 
 const fazerLogout = () => router.push('/');
 </script>

@@ -112,7 +112,7 @@ const voltar = () => router.back();
     height: 100vh;
     display: flex;
     flex-direction: column;
-    background: #f5f0e8;
+    background: #ffffff;
 }
 
 /* Topo do Chat */

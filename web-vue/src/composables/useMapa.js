@@ -41,7 +41,7 @@ export function useMapa() {
                     sources: {
                         protomaps: {
                             type: 'vector',
-                            url: 'pmtiles:///tiles/regiao-sul-proto.pmtiles',
+                            url: 'pmtiles:///tiles/cidades-2026-10.pmtiles',
                             maxzoom: 16,
                         },
                     },

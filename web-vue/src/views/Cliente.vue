@@ -152,7 +152,7 @@ const fecharModal = () => {
 /* ═══════════════════════════════════════════════════════════ */
 .cliente {
     min-height: 100vh;
-    background: #f5f0e8;
+    background: #ffffff;
     display: flex;
     flex-direction: column;
 }
@@ -237,7 +237,7 @@ const fecharModal = () => {
 @media (min-width: 768px) {
     .carrossel-container {
         height: 300px;
-        margin-top: 24px;
+        margin-top: 24px; 
         border-radius: 24px;
     }
 }

@@ -93,7 +93,7 @@ const selecionarProduto = (produto) => router.push(`/produto/${produto.id}`);
 
 <style scoped>
 /* Estilos mantidos iguais */
-.categoria-page { min-height: 100vh; background: #f5f0e8; display: flex; flex-direction: column; }
+.categoria-page { min-height: 100vh; background: #ffffff; display: flex; flex-direction: column; }
 .conteudo { flex: 1; padding: 16px; max-width: 800px; margin: 0 auto; width: 100%; }
 .topo-categoria { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
 .btn-voltar { background: #fff; border: 1px solid #eee; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #1a1a1a; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }

@@ -7,29 +7,29 @@ import { useRouter } from 'vue-router';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { ArrowLeft, MapPin, User, LocateFixed, Loader2, Search, MapPinOff, MapPinCheck } from 'lucide-vue-next';
-import { useLoja } from '../composables/useLoja.js';
 
-// Componentes e Composables
 import HeaderCliente from '../components/cliente/HeaderCliente.vue';
 import { useCarrinho } from '../composables/useCarrinho.js';
 import { usePerfil } from '../composables/usePerfil.js';
 import { useTaxasEntrega } from '../composables/useTaxasEntrega.js';
+import { useLoja } from '../composables/useLoja.js';
+import { registrarProtocoloPmtiles, criarStyleProtomaps } from '../pkg/mapProtocol.js';
 
-// Config Worker MapLibre
-maplibregl.setWorkerUrl('https://unpkg.com/maplibre-gl@^6.0.0/dist/maplibre-gl-worker.mjs');
+// ✅ Registra o protocolo (é idempotente, pode chamar várias vezes)
+registrarProtocoloPmtiles();
 
 // ═══════════════════════════════════════════════════════════
-// 2. COMPOSABLES (Funções Globais)
+// 2. COMPOSABLES
 // ═══════════════════════════════════════════════════════════
 const router = useRouter();
 const { itens, valorTotal } = useCarrinho();
 const { perfil, enderecoPrincipal } = usePerfil();
 const { obterTaxaPorBairro } = useTaxasEntrega();
-const { lojaEstaAberta } = useLoja();
+const { lojaEstaAberta, configLoja } = useLoja();
+
 // ═══════════════════════════════════════════════════════════
-// 3. ESTADOS (Refs) - Declarar TODOS antes dos computeds
+// 3. ESTADOS
 // ═══════════════════════════════════════════════════════════
-// Formulário
 const nome = ref('');
 const whatsapp = ref('');
 const rua = ref('');
@@ -40,31 +40,29 @@ const complemento = ref('');
 const referencia = ref('');
 const tipoEndereco = ref('casa');
 
-// Mapa (não reativos)
 let map = null;
 let marker = null;
-const lat = ref(-23.5505);
-const lng = ref(-46.6333);
+const lat = ref(configLoja.value.coordenadas?.lat || -23.5507);
+const lng = ref(configLoja.value.coordenadas?.lng || -51.4607);
 
-// Estados de carregamento
 const buscandoGps = ref(false);
 const buscandoEndereco = ref(false);
-
-// Modais
 const modalErroEndereco = ref(false);
 const modalConfirmacaoRua = ref(false);
 
+// ✅ NOVO: estado para mostrar se o mapa carregou ou falhou
+const mapaCarregado = ref(false);
+const mapaErro = ref(false);
+
 // ═══════════════════════════════════════════════════════════
-// 4. COMPUTEDS (Agora sim, após todos os refs)
+// 4. COMPUTEDS
 // ═══════════════════════════════════════════════════════════
 const taxaEntregaCalculada = computed(() => {
     if (!bairro.value) return 0;
     return obterTaxaPorBairro(bairro.value);
 });
 
-const totalComEntrega = computed(() => {
-    return valorTotal.value + taxaEntregaCalculada.value;
-});
+const totalComEntrega = computed(() => valorTotal.value + taxaEntregaCalculada.value);
 
 // ═══════════════════════════════════════════════════════════
 // 5. UTILITÁRIOS
@@ -76,10 +74,8 @@ const formatarPreco = (valor) => {
 };
 
 // ═══════════════════════════════════════════════════════════
-// 6. AÇÕES (API, GPS E MODAIS)
+// 6. AÇÕES
 // ═══════════════════════════════════════════════════════════
-
-// 6.1 Buscar Rua por Texto (API /ruas)
 const buscarEnderecoManual = async () => {
     if (!rua.value || rua.value.trim().length < 3) {
         alert('Por favor, digite pelo menos 3 letras no campo "Rua".');
@@ -101,17 +97,16 @@ const buscarEnderecoManual = async () => {
             if (primeiraRua.nome) rua.value = primeiraRua.nome;
             if (primeiraRua.bairro) bairro.value = primeiraRua.bairro;
 
-            if (primeiraRua.lat && primeiraRua.lon) {
+            if (primeiraRua.lat && primeiraRua.lon && map) {
                 lat.value = primeiraRua.lat;
                 lng.value = primeiraRua.lon;
                 map.flyTo({ center: [lng.value, lat.value], zoom: 16 });
-                marker.setLngLat([lng.value, lat.value]);
+                marker?.setLngLat([lng.value, lat.value]);
             }
 
             setTimeout(() => {
                 modalConfirmacaoRua.value = true;
             }, 6000);
-
         } else {
             modalErroEndereco.value = true;
         }
@@ -123,7 +118,6 @@ const buscarEnderecoManual = async () => {
     }
 };
 
-// 6.2 Usar GPS do Navegador
 const usarMinhaLocalizacao = () => {
     if (!navigator.geolocation) {
         alert('Seu navegador não suporta geolocalização.');
@@ -137,8 +131,10 @@ const usarMinhaLocalizacao = () => {
             lat.value = latitude;
             lng.value = longitude;
 
-            map.flyTo({ center: [longitude, latitude], zoom: 17 });
-            marker.setLngLat([longitude, latitude]);
+            if (map) {
+                map.flyTo({ center: [longitude, latitude], zoom: 17 });
+                marker?.setLngLat([longitude, latitude]);
+            }
 
             buscandoGps.value = false;
         },
@@ -151,7 +147,6 @@ const usarMinhaLocalizacao = () => {
     );
 };
 
-// 6.3 Ações dos Modais
 const confirmarRua = () => {
     modalConfirmacaoRua.value = false;
     document.getElementById('input-numero')?.focus();
@@ -166,9 +161,9 @@ const usarGpsDoModal = () => {
 // 7. FINALIZAR PEDIDO
 // ═══════════════════════════════════════════════════════════
 const finalizarPedido = () => {
-     if (!lojaEstaAberta.value) {
+    if (!lojaEstaAberta.value) {
         alert('A loja acabou de fechar. Não é possível finalizar o pedido agora.');
-        router.push('/'); // Joga o cliente de volta pro cardápio
+        router.push('/');
         return;
     }
 
@@ -180,10 +175,7 @@ const finalizarPedido = () => {
     const novoPedido = {
         id: Date.now(),
         status: 'aguardando_pagamento',
-        cliente: {
-            nome: nome.value,
-            whatsapp: whatsapp.value
-        },
+        cliente: { nome: nome.value, whatsapp: whatsapp.value },
         endereco: {
             tipo: tipoEndereco.value,
             rua: rua.value,
@@ -194,37 +186,82 @@ const finalizarPedido = () => {
             referencia: referencia.value,
             coordenadas: { lat: lat.value, lng: lng.value }
         },
+         // ✅ NOVO: Snapshot da loja no momento do pedido
+        lojaCoordenadas: {
+        lat: configLoja.value.coordenadas?.lat || -23.5507,
+        lng: configLoja.value.coordenadas?.lng || -51.4607
+    },
         itens: itens.value,
         taxaEntrega: taxaEntregaCalculada.value,
         total: valorTotal.value,
         valorFinal: totalComEntrega.value,
         dataCriacao: new Date().toISOString()
-    };
+};
 
     localStorage.setItem('@delivery:checkout', JSON.stringify(novoPedido));
     router.push('/pagamento');
 };
 
 // ═══════════════════════════════════════════════════════════
-// 8. CICLO DE VIDA (MONTAGEM)
+// 8. CICLO DE VIDA
 // ═══════════════════════════════════════════════════════════
 onMounted(() => {
-    // 8.1 Inicializa o Mapa
-    const styleUrl = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+    console.log('🗺️ Inicializando mapa PMTiles...');
+
+    // ✅ Log de diagnóstico
+    const style = criarStyleProtomaps('light');
+    console.log('📦 Style criado. Sources:', Object.keys(style.sources));
+    console.log('📦 Total de layers:', style.layers.length);
+
     map = new maplibregl.Map({
         container: 'map',
-        style: styleUrl,
+        style: style,
         center: [lng.value, lat.value],
         zoom: 15
     });
+
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-    // 8.2 Cria o Pino
+    // ✅ Log quando o estilo estiver pronto
+    map.on('styledata', () => {
+        console.log('🎨 styledata disparado');
+    });
+
+    // ✅ Log quando todos os tiles carregarem (aqui sabemos se funciona)
+    map.on('load', () => {
+        console.log('✅ Mapa carregado com sucesso!');
+        mapaCarregado.value = true;
+
+        // Diagnóstico: verificar se o source existe
+        const source = map.getSource('protomaps');
+        console.log('🔍 Source "protomaps" existe?', !!source);
+
+        if (!source) {
+            console.warn('⚠️ Source "protomaps" NÃO encontrado no mapa!');
+            console.warn('Sources disponíveis:', Object.keys(map.getStyle().sources));
+        }
+    });
+
+    // ✅ Detecta erros de tiles (o mais importante para diagnosticar)
+    map.on('error', (e) => {
+        console.error('❌ Erro no mapa:', e.error);
+
+        // Se o erro for do PMTiles, avisa
+        if (e.error?.message?.includes('pmtiles') || e.error?.message?.includes('tiles')) {
+            console.error('🚨 O arquivo PMTiles não está sendo encontrado!');
+            console.error('Verifique:');
+            console.error('1. O backend Go está rodando em localhost:9090?');
+            console.error('2. O arquivo cidades-2026-10.pmtiles existe em backend/tiles/?');
+            console.error('3. O proxy /tiles está configurado no vite.config.js?');
+            mapaErro.value = true;
+        }
+    });
+
+    // ✅ Cria o pino
     marker = new maplibregl.Marker({ draggable: true, color: '#dc2626' })
         .setLngLat([lng.value, lat.value])
         .addTo(map);
 
-    // 8.3 Eventos do Pino e do Mapa
     marker.on('dragend', () => {
         const lngLat = marker.getLngLat();
         lat.value = lngLat.lat;
@@ -232,13 +269,13 @@ onMounted(() => {
     });
 
     map.on('click', (e) => {
-        const { lng, lat } = e.latlng;
+        const { lng, lat } = e.lngLat;
         marker.setLngLat([lng, lat]);
         lat.value = lat;
         lng.value = lng;
     });
 
-    // 8.4 Auto-preenchimento do Perfil
+    // Auto-preenchimento do perfil
     if (perfil.value.nome) nome.value = perfil.value.nome;
     if (perfil.value.whatsapp) whatsapp.value = perfil.value.whatsapp;
 
@@ -259,7 +296,6 @@ onBeforeUnmount(() => {
     <div class="checkout-page">
         <HeaderCliente />
 
-        <!-- ✅ CORRIGIDO: O '<' estava faltando aqui -->
         <main class="conteudo">
             <!-- BOTÃO VOLTAR -->
             <div class="topo">
@@ -339,6 +375,18 @@ onBeforeUnmount(() => {
             <div class="card-secao">
                 <h2><MapPin :size="18" /> Confirme no Mapa</h2>
                 <p class="sub">Arraste o pino vermelho até a porta da sua casa ou clique em "usar minha localização atual".</p>
+
+                <!-- ✅ Overlay de carregamento do mapa -->
+                <div v-if="!mapaCarregado && !mapaErro" class="mapa-loading">
+                    <Loader2 :size="28" class="spin" color="#dc2626" />
+                    <span>Carregando mapa...</span>
+                </div>
+
+                <!-- ✅ Alerta se o mapa falhar -->
+                <div v-if="mapaErro" class="alerta-mapa">
+                    ⚠️ Não foi possível carregar o mapa. Verifique sua conexão com o servidor.
+                </div>
+
                 <div id="map" class="map-container"></div>
             </div>
 
@@ -361,11 +409,9 @@ onBeforeUnmount(() => {
                     Ir para Pagamento
                 </button>
             </div>
-        </main> <!-- ✅ CORRIGIDO: Tag main fechada aqui -->
+        </main>
 
-        <!-- ========================================== -->
-        <!-- MODAL 1: ERRO AO BUSCAR ENDEREÇO           -->
-        <!-- ========================================== -->
+        <!-- MODAL 1: ERRO AO BUSCAR ENDEREÇO -->
         <Teleport to="body">
             <div v-if="modalErroEndereco" class="modal-overlay">
                 <div class="modal-content">
@@ -373,28 +419,20 @@ onBeforeUnmount(() => {
                         <MapPinOff :size="32" color="#dc2626" />
                     </div>
                     <h3>Não achamos sua rua exata 😕</h3>
-                    <p>
-                        O sistema tentou buscar, mas não encontrou um endereço exato. Para o entregador não se perder:
-                    </p>
+                    <p>O sistema tentou buscar, mas não encontrou um endereço exato. Para o entregador não se perder:</p>
                     <ul class="modal-list">
                         <li><b>Ligue o GPS</b> do celular e clique em <b>"Usar minha localização atual"</b>.</li>
                         <li>Se preferir, <b>arraste o pino vermelho</b> no mapa até a porta da sua casa.</li>
                     </ul>
-                    <p class="modal-aviso">
-                        Assim que ajustar, clique em <b>"Buscar rua"</b> novamente.
-                    </p>
+                    <p class="modal-aviso">Assim que ajustar, clique em <b>"Buscar rua"</b> novamente.</p>
                     <div class="modal-acoes">
-                        <button class="btn-modal-fechar" @click="modalErroEndereco = false">
-                            Entendi, vou ajustar
-                        </button>
+                        <button class="btn-modal-fechar" @click="modalErroEndereco = false">Entendi, vou ajustar</button>
                     </div>
                 </div>
             </div>
         </Teleport>
 
-        <!-- ========================================== -->
-        <!-- MODAL 2: CONFIRMAÇÃO DA RUA                -->
-        <!-- ========================================== -->
+        <!-- MODAL 2: CONFIRMAÇÃO DA RUA -->
         <Teleport to="body">
             <div v-if="modalConfirmacaoRua" class="modal-overlay">
                 <div class="modal-content">
@@ -402,32 +440,24 @@ onBeforeUnmount(() => {
                         <MapPinCheck :size="32" color="#16a34a" />
                     </div>
                     <h3>Encontramos seu endereço! 📍</h3>
-                    <p>
-                        Preenchemos a rua como <strong>{{ rua }}</strong> e o bairro como <strong>{{ bairro }}</strong>.
-                    </p>
-                    <p class="modal-aviso-verde">
-                        Para garantir que o entregador chegue na porta exata, recomendamos usar a localização do celular.
-                    </p>
-
+                    <p>Preenchemos a rua como <strong>{{ rua }}</strong> e o bairro como <strong>{{ bairro }}</strong>.</p>
+                    <p class="modal-aviso-verde">Para garantir que o entregador chegue na porta exata, recomendamos usar a localização do celular.</p>
                     <div class="modal-acoes-duplas">
                         <button class="btn-modal-gps" @click="usarGpsDoModal">
                             <LocateFixed :size="16" /> Usar GPS exato
                         </button>
-                        <button class="btn-modal-confirmar" @click="confirmarRua">
-                            Sim, está certo
-                        </button>
+                        <button class="btn-modal-confirmar" @click="confirmarRua">Sim, está certo</button>
                     </div>
                 </div>
             </div>
         </Teleport>
     </div>
 </template>
-
 <style scoped>
 /* ═══════════════════════════════════════════════════════════ */
 /* 1. LAYOUT GERAL DA PÁGINA                                  */
 /* ═══════════════════════════════════════════════════════════ */
-.checkout-page { min-height: 100vh; background: #f5f0e8; display: flex; flex-direction: column; padding-bottom: 40px; }
+.checkout-page { min-height: 100vh; background: #ffffff; display: flex; flex-direction: column; padding-bottom: 40px; }
 .conteudo { flex: 1; padding: 16px; max-width: 600px; margin: 0 auto; width: 100%; }
 
 /* ═══════════════════════════════════════════════════════════ */
@@ -461,8 +491,8 @@ onBeforeUnmount(() => {
 /* ═══════════════════════════════════════════════════════════ */
 /* 5. BOTÕES (GPS, Buscar, Finalizar)                         */
 /* ═══════════════════════════════════════════════════════════ */
-.btn-gps { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #fef2f2; color: #dc2626; border: 1px dashed #fecaca; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-bottom: 16px; transition: all 0.2s; }
-.btn-gps:hover:not(:disabled) { background: #fee2e2; }
+.btn-gps { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #ffffff; color: #dc2626; border: 1px dashed #fecaca; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; margin-bottom: 16px; transition: all 0.2s; }
+.btn-gps:hover:not(:disabled) { background: #ffffff; }
 .btn-gps:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-buscar-endereco { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #fff; color: #dc2626; border: 2px solid #dc2626; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 4px; transition: all 0.2s; }
@@ -476,6 +506,33 @@ onBeforeUnmount(() => {
 /* 6. MAPA                                                    */
 /* ═══════════════════════════════════════════════════════════ */
 .map-container { width: 100%; height: 250px; border-radius: 12px; overflow: hidden; z-index: 1; }
+
+.mapa-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 250px;
+    background: #f5f5f5;
+    border-radius: 12px;
+    color: #71717a;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.alerta-mapa {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    text-align: center;
+}
 
 /* ═══════════════════════════════════════════════════════════ */
 /* 7. RESUMO                                                  */

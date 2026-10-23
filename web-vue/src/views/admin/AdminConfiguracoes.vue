@@ -1,20 +1,28 @@
 <script setup>
-import { ref } from 'vue';
-import { Lock } from 'lucide-vue-next';
-import { MapPin, DollarSign, Clock, Save, Store, Image as ImageIcon, Trash2, Shield } from 'lucide-vue-next';
+import { ref, watch, nextTick } from 'vue';
+import { 
+    Store, DollarSign, Clock, Save, Shield, Lock, MapPin, Image as ImageIcon, Trash2 
+} from 'lucide-vue-next';
+import * as maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTaxasEntrega } from '../../composables/useTaxasEntrega.js';
 import { useLoja } from '../../composables/useLoja.js';
 import { useAuth } from '../../composables/useAuth.js';
+import { registrarProtocoloPmtiles, criarStyleProtomaps } from '../../pkg/mapProtocol.js';
+
 
 // ─── COMPOSABLES ───
 const { taxas, salvarTaxa, removerTaxa } = useTaxasEntrega();
 const { configLoja, salvarConfiguracoes } = useLoja();
+
+registrarProtocoloPmtiles();
 
 const abas = [
     { id: 'loja',     label: 'Loja',        icon: Store },
     { id: 'taxas',    label: 'Taxas',       icon: MapPin },
     { id: 'pix',      label: 'Pix',         icon: DollarSign },
     { id: 'politica', label: 'Privacidade', icon: Shield },
+    { id: 'localizacao', label: 'Localização', icon: MapPin },
     { id: 'seguranca', label: 'Segurança', icon: Lock },
     { id: 'horarios', label: 'Horários',    icon: Clock },
 ];
@@ -57,7 +65,6 @@ const trocarSenha = async () => {
     }
 };
 
-
 // ─── ESTADOS DE CADA ABA ───
 const cfg = configLoja.value || {};
 
@@ -75,6 +82,85 @@ const cnpj = ref(cfg.cnpj || '');
 // Taxas
 const novoBairro = ref('');
 const novaTaxa = ref(0);
+
+// ═══════════════════════════════════════════════════════════
+// ✅ LOCALIZAÇÃO DA LOJA
+// ═══════════════════════════════════════════════════════════
+const dadosLocalizacao = ref({
+    lat: configLoja.value.coordenadas?.lat || -23.5507,
+    lng: configLoja.value.coordenadas?.lng || -51.4607
+});
+
+let mapaLocalizacao = null;
+let markerLocalizacao = null;
+
+const inicializarMapaLocalizacao = async () => {
+    if (mapaLocalizacao) return;
+    await nextTick();
+    const container = document.getElementById('mapa-loja');
+    if (!container) return;
+
+    mapaLocalizacao = new maplibregl.Map({
+        container: 'mapa-loja',
+        style: criarStyleProtomaps('light'),
+        center: [dadosLocalizacao.value.lng, dadosLocalizacao.value.lat],
+        zoom: 16
+    });
+
+    mapaLocalizacao.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    markerLocalizacao = new maplibregl.Marker({ draggable: true, color: '#dc2626' })
+        .setLngLat([dadosLocalizacao.value.lng, dadosLocalizacao.value.lat])
+        .addTo(mapaLocalizacao);
+
+    markerLocalizacao.on('dragend', () => {
+        const lngLat = markerLocalizacao.getLngLat();
+        dadosLocalizacao.value.lat = lngLat.lat;
+        dadosLocalizacao.value.lng = lngLat.lng;
+    });
+
+    mapaLocalizacao.on('click', (e) => {
+        markerLocalizacao.setLngLat(e.lngLat);
+        dadosLocalizacao.value.lat = e.latlng.lat;
+        dadosLocalizacao.value.lng = e.latlng.lng;
+    });
+};
+
+watch(abaAtiva, (nova) => {
+    if (nova === 'localizacao') {
+        setTimeout(() => inicializarMapaLocalizacao(), 100);
+    }
+});
+
+const salvarLocalizacao = () => {
+    salvarConfiguracoes({
+        coordenadas: {
+            lat: Number(dadosLocalizacao.value.lat),
+            lng: Number(dadosLocalizacao.value.lng)
+        }
+    });
+    alert(`📍 Localização atualizada!\n\nLat: ${Number(dadosLocalizacao.value.lat).toFixed(6)}\nLng: ${Number(dadosLocalizacao.value.lng).toFixed(6)}`);
+};
+
+const usarMinhaLocalizacaoLoja = () => {
+    if (!navigator.geolocation) {
+        alert('GPS não suportado.');
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const { latitude, longitude } = pos.coords;
+            dadosLocalizacao.value.lat = latitude;
+            dadosLocalizacao.value.lng = longitude;
+            if (mapaLocalizacao && markerLocalizacao) {
+                mapaLocalizacao.flyTo({ center: [longitude, latitude], zoom: 17 });
+                markerLocalizacao.setLngLat([longitude, latitude]);
+            }
+        },
+        (err) => alert('Erro GPS: ' + err.message),
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+};
 
 // Pix
 const dadosBancarios = ref({
@@ -369,6 +455,48 @@ const formatarPreco = (valor) =>
                 <Save :size="18" /> Salvar política
             </button>
         </div>
+
+        <!-- ═════════════ ABA: LOCALIZAÇÃO ═════════════ -->
+<div v-if="abaAtiva === 'localizacao'" class="card-aba">
+    <p class="sub">
+        Arraste o pino vermelho ou clique no mapa para marcar onde fica a loja.
+        Essa coordenada é usada para calcular as rotas de entrega.
+    </p>
+
+    <div style="width: 100%; height: 320px; border-radius: 12px; overflow: hidden; margin-bottom: 16px; border: 1px solid #e4e4e7;">
+        <div id="mapa-loja" style="width: 100%; height: 100%;"></div>
+    </div>
+
+    <div style="display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 150px; padding: 12px; background: #fafafa; border-radius: 8px; border: 1px solid #f4f4f5;">
+            <span style="font-size: 11px; color: #71717a; font-weight: 600; text-transform: uppercase;">Latitude:</span>
+            <div style="font-family: 'Courier New', monospace; font-size: 15px; font-weight: 800; color: #18181b;">
+                {{ Number(dadosLocalizacao.lat).toFixed(6) }}
+            </div>
+        </div>
+        <div style="flex: 1; min-width: 150px; padding: 12px; background: #fafafa; border-radius: 8px; border: 1px solid #f4f4f5;">
+            <span style="font-size: 11px; color: #71717a; font-weight: 600; text-transform: uppercase;">Longitude:</span>
+            <div style="font-family: 'Courier New', monospace; font-size: 15px; font-weight: 800; color: #18181b;">
+                {{ Number(dadosLocalizacao.lng).toFixed(6) }}
+            </div>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button 
+            @click="usarMinhaLocalizacaoLoja" 
+            style="flex: 1; min-width: 200px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #fff; color: #dc2626; border: 2px solid #dc2626; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer;"
+        >
+            📍 Usar minha localização
+        </button>
+        <button 
+            @click="salvarLocalizacao" 
+            style="flex: 1; min-width: 200px; background: #dc2626; color: #fff; border: none; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer;"
+        >
+            Salvar Localização
+        </button>
+    </div>
+</div>
 
         <!-- ═════════════ ABA: HORÁRIOS ═════════════ -->
         <div v-if="abaAtiva === 'horarios'" class="card-aba">
