@@ -300,7 +300,7 @@ function confirmarComPin() {
     if (!resultado.ok) {
         // Atualiza o contador no localStorage
         const pedidos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-        const idx = pedidos.findIndex(p => p.id == pedido.value.id);
+        const idx = pedidos.findIndex(p => p.id === pedido.value.id);
         if (idx !== -1) {
             pedidos[idx].pinTentativas = resultado.tentativas || pedido.value.pinTentativas + 1;
             pedidos[idx].pinBloqueado = resultado.motivo === 'bloqueado';
@@ -338,7 +338,7 @@ function confirmarComFoto() {
 // ─── Salva no localStorage ───
 function finalizarEntrega(tipo) {
     const pedidos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-    const idx = pedidos.findIndex(p => p.id == pedido.value.id);
+    const idx = pedidos.findIndex(p => p.id === pedido.value.id);
 
     if (idx !== -1) {
         pedidos[idx].status = 'Entregue';
@@ -377,7 +377,7 @@ let ultimaManobraFalada = -1;
 onMounted(() => {
   // 1. Carrega pedido da URL
   const pedidos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-  const encontrado = pedidos.find(p => p.id == pedidoId);
+  const encontrado = pedidos.find(p => p.id === pedidoId);
 
   if (!encontrado) {
     alert('Pedido não encontrado.');
@@ -524,7 +524,7 @@ function marcarEntregue() {
   }
 
   const pedidos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-  const idx = pedidos.findIndex(p => p.id == pedido.value.id);
+  const idx = pedidos.findIndex(p => p.id === pedido.value.id);
 
   if (idx !== -1) {
     pedidos[idx].status = 'Entregue';
@@ -543,7 +543,7 @@ function marcarEntregue() {
 function salvarPosicaoNoPedido(lat, lon) {
     if (!pedido.value) return;
     const pedidos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-    const idx = pedidos.findIndex(p => p.id == pedido.value.id);
+    const idx = pedidos.findIndex(p => p.id === pedido.value.id);
     if (idx !== -1) {
         // ✅ Pega o heading do GPS
         const posAtual = pedidos[idx].coordenadasEntregador;

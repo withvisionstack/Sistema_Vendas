@@ -11,6 +11,7 @@
  * @param {number} lon2 - Longitude do ponto 2 (graus)
  * @returns {number} Distância em metros
  */
+
 export function haversine(lat1, lon1, lat2, lon2) {
     const R = 6371000; // Raio da Terra em metros
     const toRad = Math.PI / 180;

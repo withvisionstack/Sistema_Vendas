@@ -5,7 +5,24 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue';
+import { useLoja } from './composables/useLoja.js';
+import { useTaxasEntrega } from './composables/useTaxasEntrega.js'; // ✅ NOVO
 import ImageModal from './components/cliente/ImageModal.vue';
+import { useEntregadores } from './composables/useEntregadores.js'; // ✅ NOVO
+
+
+const { carregarLoja } = useLoja();
+const { carregarTaxas } = useTaxasEntrega(); // ✅ NOVO
+const { carregarEntregadores } = useEntregadores(); // ✅ NOVO
+
+onMounted(() => {
+    carregarLoja(); // Carrega a loja 1x, todos os componentes veem
+    carregarTaxas();
+    carregarEntregadores();
+});
+
+
 </script>
 
 <style>

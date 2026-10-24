@@ -1,9 +1,13 @@
 import { ref, computed, watch } from 'vue';
 
+// ═══════════════════════════════════════════════════════════
+// CONFIG PADRÃO (enquanto a API carrega)
+// ═══════════════════════════════════════════════════════════
 const CONFIG_PADRAO = {
+    id: 0,
     nome: 'Hamburgueria',
     logo: '🍔',
-    capas: [], // ✅ Agora é uma lista de imagens
+    capas: [],
     cnpj: '',
     chavePix: '',
     nomeBeneficiario: '',
@@ -11,54 +15,102 @@ const CONFIG_PADRAO = {
     aberto: true,
     horarioAbertura: '18:00',
     horarioFechamento: '23:59',
-    emailContato: 'privacidade@hamburgueria.com.br',
-    cidadeSede: 'Apucarana/PR',
-    nomeDPO: 'Nome do responsável',
-    emailDPO: 'dpo@hamburgueria.com.br',
-    coordenadas: {
-        lat: -23.5507,
-        lng: -51.4607
-    }
+    coordenadas: { lat: -23.5507, lng: -51.4607 },
+    emailContato: '',
+    cidadeSede: '',
+    nomeDPO: '',
+    emailDPO: '',
+    tempoEntregaPadrao: 30,
 };
 
-const carregarConfiguracao = () => {
-    try {
-        const salvo = localStorage.getItem('@delivery:loja');
-        if (salvo) {
-            const parsed = JSON.parse(salvo);
-            // ✅ Se já existir mas não tiver coordenadas, adiciona o padrão
-            if (!parsed.coordenadas) {
-                parsed.coordenadas = CONFIG_PADRAO.coordenadas;
-            }
-            // ... resto da lógica de capas antigas
-            if (parsed.capaUrl && (!parsed.capas || parsed.capas.length === 0)) {
-                parsed.capas = [parsed.capaUrl];
-                delete parsed.capaUrl;
-            }
-            return { ...CONFIG_PADRAO, ...parsed };
-        }
-    } catch (e) { console.error(e); }
-    return CONFIG_PADRAO;
-};
+// ═══════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════════════════════
+const configLoja = ref({ ...CONFIG_PADRAO });
+const carregando = ref(false);
+const erro = ref(null);
+const carregado = ref(false);
 
-const configLoja = ref(carregarConfiguracao());
+// Relógio reativo (recalcula lojaEstaAberta a cada 30s)
 const agora = ref(new Date());
-setInterval(() => { agora.value = new Date(); }, 30000);
+setInterval(() => {
+    agora.value = new Date();
+}, 30000);
 
+// ═══════════════════════════════════════════════════════════
+// API PÚBLICA
+// ═══════════════════════════════════════════════════════════
 export function useLoja() {
-    watch(configLoja, (novo) => {
-        try { localStorage.setItem('@delivery:loja', JSON.stringify(novo)); }
-        catch (e) { alert("Imagem muito grande para salvar."); }
-    }, { deep: true });
+    // ─────────────────────────────────────────────
+    // CARREGAR DA API
+    // ─────────────────────────────────────────────
+    const carregarLoja = async (forcar = false) => {
+        if (carregado.value && !forcar) return;
 
+        carregando.value = true;
+        erro.value = null;
+
+        try {
+            const res = await fetch('/api/loja');
+            if (!res.ok) throw new Error(`Erro ${res.status}`);
+
+            const data = await res.json();
+            configLoja.value = { ...CONFIG_PADRAO, ...data };
+            carregado.value = true;
+        } catch (e) {
+            erro.value = e.message;
+            console.error('[useLoja] Erro ao carregar:', e);
+        } finally {
+            carregando.value = false;
+        }
+    };
+
+    // ─────────────────────────────────────────────
+    // SALVAR NA API
+    // ─────────────────────────────────────────────
+    const salvarConfiguracoes = async (dados) => {
+        try {
+            const res = await fetch('/api/loja', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.erro || `Erro ${res.status}`);
+            }
+
+            const atualizado = await res.json();
+            configLoja.value = { ...CONFIG_PADRAO, ...atualizado };
+            agora.value = new Date();
+
+            return atualizado;
+        } catch (e) {
+            console.error('[useLoja] Erro ao salvar:', e);
+            throw e;
+        }
+    };
+
+    // ─────────────────────────────────────────────
+    // LOJA ABERTA (computed)
+    // ─────────────────────────────────────────────
     const lojaEstaAberta = computed(() => {
         if (!configLoja.value.aberto) return false;
+
         const horaAtual = agora.value.getHours() * 60 + agora.value.getMinutes();
-        const [hAberta, mAberta] = configLoja.value.horarioAbertura.split(':').map(Number);
-        const [hFecha, mFecha] = configLoja.value.horarioFechamento.split(':').map(Number);
+
+        const [hAberta, mAberta] = (configLoja.value.horarioAbertura || '00:00')
+            .split(':')
+            .map(Number);
+        const [hFecha, mFecha] = (configLoja.value.horarioFechamento || '23:59')
+            .split(':')
+            .map(Number);
+
         const minutosAbertura = hAberta * 60 + mAberta;
         const minutosFechamento = hFecha * 60 + mFecha;
 
+        // Horário que vira a madrugada (ex: 18:00 às 02:00)
         if (minutosAbertura <= minutosFechamento) {
             return horaAtual >= minutosAbertura && horaAtual <= minutosFechamento;
         } else {
@@ -66,11 +118,12 @@ export function useLoja() {
         }
     });
 
-    const salvarConfiguracoes = (dados) => {
-        configLoja.value = { ...configLoja.value, ...dados };
-        agora.value = new Date();
-        window.dispatchEvent(new Event('loja-atualizada'));
+    return {
+        configLoja,
+        carregando,
+        erro,
+        lojaEstaAberta,
+        carregarLoja,
+        salvarConfiguracoes,
     };
-
-    return { configLoja, lojaEstaAberta, salvarConfiguracoes };
 }

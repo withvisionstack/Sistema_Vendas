@@ -9,11 +9,13 @@ import { useTaxasEntrega } from '../../composables/useTaxasEntrega.js';
 import { useLoja } from '../../composables/useLoja.js';
 import { useAuth } from '../../composables/useAuth.js';
 import { registrarProtocoloPmtiles, criarStyleProtomaps } from '../../pkg/mapProtocol.js';
+import { useUploadImagem } from '../../composables/useUploadImagem.js';
 
 
 // ─── COMPOSABLES ───
 const { taxas, salvarTaxa, removerTaxa } = useTaxasEntrega();
 const { configLoja, salvarConfiguracoes } = useLoja();
+const { comprimirEUpload } = useUploadImagem();
 
 registrarProtocoloPmtiles();
 
@@ -185,52 +187,35 @@ const dadosHorario = ref({
 });
 
 const logoEhImagem = (valor) =>
-    typeof valor === 'string' && (valor.startsWith('http') || valor.startsWith('data:image'));
+    typeof valor === 'string' && (
+        valor.startsWith('http') ||
+        valor.startsWith('/') ||
+        valor.startsWith('data:image')
+    );
 
 // ─── UPLOAD DE IMAGENS ───
 // Comprime a imagem e converte para Base64
-const comprimirImagem = (file, maxSize, qualidade = 0.7) =>
-    new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = reject;
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onerror = reject;
-            img.onload = () => {
-                let { width, height } = img;
-
-                if (width > height && width > maxSize) { height *= maxSize / width; width = maxSize; }
-                else if (height > maxSize) { width *= maxSize / height; height = maxSize; }
-
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', qualidade));
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
-
 const fazerUploadLogo = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
     try {
-        dadosLoja.value.logo = await comprimirImagem(file, 300);
-    } catch {
-        alert('Não foi possível ler essa imagem.');
+        dadosLoja.value.logo = await comprimirEUpload(file, 'logo', 300);
+    } catch (e) {
+        alert('Não foi possível enviar a imagem: ' + e.message);
     }
-    event.target.value = ''; // permite escolher o mesmo arquivo novamente
+    event.target.value = '';
 };
+
+
 
 const fazerUploadCapas = async (event) => {
     const files = Array.from(event.target.files);
     for (const file of files) {
         try {
-            dadosLoja.value.capas.push(await comprimirImagem(file, 800));
-        } catch {
-            alert(`Não foi possível ler "${file.name}".`);
+            const url = await comprimirEUpload(file, 'capa', 800);   // ← comprimirEUpload = NOVA
+            dadosLoja.value.capas.push(url);
+        } catch (e) {
+            alert(`Não foi possível enviar "${file.name}": ${e.message}`);
         }
     }
     event.target.value = '';

@@ -44,7 +44,7 @@ const coordsLoja = computed(() => {
 // ─── BUSCA O PEDIDO ───
 const buscarPedido = () => {
     const pedidosSalvos = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-    const pedidoEncontrado = pedidosSalvos.find(p => p.id == route.params.id);
+    const pedidoEncontrado = pedidosSalvos.find(p => p.id === route.params.id);
     
     if (pedidoEncontrado) {
         // ✅ Detecta mudança para "Entregue"

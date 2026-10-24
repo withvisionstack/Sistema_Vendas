@@ -10,15 +10,15 @@ import { useImageModal } from '../composables/useImageModal.js';
 import { useCarrinho } from '../composables/useCarrinho.js';
 import { useLoja } from '../composables/useLoja.js';
 import { useProdutos } from '../composables/useProdutos.js';
-import { useEstoque } from '../composables/useEstoque.js';
+
 
 const route = useRoute();
 const router = useRouter();
 const { abrir } = useImageModal();
 const { adicionarItem } = useCarrinho();
 const { lojaEstaAberta } = useLoja();
-const { produtos } = useProdutos(); // ✅ Importação correta
-const { getEstoque } = useEstoque();
+const { produtos, carregarProdutos } = useProdutos();
+
 
 const carregando = ref(true);
 const produto = ref(null);
@@ -29,12 +29,23 @@ const observacao = ref('');
 const obsSalva = ref(false);
 const modalFechado = ref(false);
 
-onMounted(() => {
-    setTimeout(() => {
-        // ✅ Busca o produto na lista reativa
-        produto.value = produtos.value.find(p => p.id === route.params.id) ?? null;
+onMounted(async () => {
+    try {
+        const identificador = route.params.id; // pode ser UUID ou slug
+        const res = await fetch(`/api/produtos/${identificador}`);
+
+        if (!res.ok) {
+            produto.value = null;
+            return;
+        }
+
+        produto.value = await res.json();
+    } catch (e) {
+        console.error('Erro ao carregar produto:', e);
+        produto.value = null;
+    } finally {
         carregando.value = false;
-    }, 1000);
+    }
 });
 
 const ehBebida = computed(() => produto.value?.categoriaId === 'bebidas');
@@ -42,8 +53,8 @@ const ehBebida = computed(() => produto.value?.categoriaId === 'bebidas');
 // ✅ ESTOQUE
 const estoqueDisponivel = computed(() => {
     if (!produto.value) return 0;
-    if (ehBebida.value) return getEstoque(produto.value.id);
-    return 999; // Lanches e porções não têm controle de estoque por enquanto
+    if (ehBebida.value) return produto.value.estoque ?? 0; // ✅ vem da API
+    return 999;
 });
 
 // ✅ PREÇO COM DESCONTO

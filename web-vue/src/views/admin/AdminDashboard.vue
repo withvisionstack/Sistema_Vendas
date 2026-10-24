@@ -1,37 +1,54 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import { DollarSign, ShoppingBag, TrendingUp, Download, Package, Plus, Minus } from 'lucide-vue-next';
-import Chart from 'chart.js/auto'; // ✅ Importa o Chart.js completo
-import { useEstoque } from '../../composables/useEstoque.js';
-import { useProdutos } from '../../composables/useProdutos.js'; // ✅ Puxa do composable
-import SkeletonAdminDashboard from './SkeletonAdminDashboard.vue'; // ✅ Caminho correto
+import { DollarSign, ShoppingBag, TrendingUp, Download, Package, Plus, Minus, Loader2 } from 'lucide-vue-next';
+import Chart from 'chart.js/auto';
+import { useProdutos } from '../../composables/useProdutos.js';
+import SkeletonAdminDashboard from './SkeletonAdminDashboard.vue';
 
-const { getEstoque, atualizarEstoque } = useEstoque();
-const { produtos } = useProdutos();
+const STORAGE_KEY = '@delivery:pedidos';
+const ESTOQUE_BAIXO = 5;
+
+const { produtos, carregarProdutos, atualizarEstoque } = useProdutos();
 
 const carregando = ref(true);
 const pedidos = ref([]);
+const estoqueAtualizando = ref(new Set());
 
-// ─── CHART.JS ───
 const canvasRef = ref(null);
 let chartInstance = null;
 
+// ─── HELPERS ───
+const formatarPreco = (valor) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(valor) || 0);
+
+const valorDoPedido = (p) => Number(p.valorFinal) || Number(p.total) || 0;
+const dataDoPedido = (p) => new Date(p.dataCriacao || p.dataPedido);
+
+const lerPedidosStorage = () => {
+    try {
+        const dados = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        return Array.isArray(dados) ? dados : [];
+    } catch {
+        return [];
+    }
+};
+
+const atualizarPedidos = () => {
+    pedidos.value = lerPedidosStorage();
+};
+
 // ─── DADOS DE VENDAS ───
-const totalVendas = computed(() => {
-    return pedidos.value
-        .filter(p => p.status !== 'Cancelado')
-        .reduce((acc, p) => acc + (p.valorFinal || p.total || 0), 0);
-});
-
-const ticketMedio = computed(() => {
-    const validos = pedidos.value.filter(p => p.status !== 'Cancelado');
-    if (validos.length === 0) return 0;
-    return totalVendas.value / validos.length;
-});
-
 const pedidosValidos = computed(() => pedidos.value.filter(p => p.status !== 'Cancelado'));
 
-// ─── DADOS DO GRÁFICO (Últimos 7 dias REAIS) ───
+const totalVendas = computed(() =>
+    pedidosValidos.value.reduce((acc, p) => acc + valorDoPedido(p), 0)
+);
+
+const ticketMedio = computed(() =>
+    pedidosValidos.value.length === 0 ? 0 : totalVendas.value / pedidosValidos.value.length
+);
+
+// ─── DADOS DO GRÁFICO ───
 const dadosGrafico = computed(() => {
     const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const hoje = new Date();
@@ -45,17 +62,16 @@ const dadosGrafico = computed(() => {
         const proximoDia = new Date(dia);
         proximoDia.setDate(dia.getDate() + 1);
 
-        const vendasNoDia = pedidos.value
+        const valor = pedidosValidos.value
             .filter(p => {
-                if (p.status === 'Cancelado') return false;
-                const dataPedido = new Date(p.dataCriacao || p.dataPedido);
-                return dataPedido >= dia && dataPedido < proximoDia;
+                const data = dataDoPedido(p);
+                return data >= dia && data < proximoDia;
             })
-            .reduce((acc, p) => acc + (p.valorFinal || p.total || 0), 0);
+            .reduce((acc, p) => acc + valorDoPedido(p), 0);
 
         resultado.push({
             dia: diasSemana[dia.getDay()],
-            valor: vendasNoDia,
+            valor,
             dataFormatada: dia.toLocaleDateString('pt-BR')
         });
     }
@@ -63,13 +79,12 @@ const dadosGrafico = computed(() => {
     return resultado;
 });
 
-// ─── CRIAÇÃO DO GRÁFICO ───
+// ─── GRÁFICO ───
 const criarGrafico = () => {
     if (!canvasRef.value) return;
     if (chartInstance) chartInstance.destroy();
 
-    const ctx = canvasRef.value.getContext('2d');
-    chartInstance = new Chart(ctx, {
+    chartInstance = new Chart(canvasRef.value.getContext('2d'), {
         type: 'bar',
         data: {
             labels: dadosGrafico.value.map(d => d.dia),
@@ -120,72 +135,101 @@ const criarGrafico = () => {
     });
 };
 
-// ─── CICLO DE VIDA ───
-onMounted(async () => {
-    // Simula o carregamento inicial
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    pedidos.value = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-    carregando.value = false;
-
-    // Cria o gráfico após o skeleton sumir
-    await nextTick();
-    criarGrafico();
-});
-
-onUnmounted(() => {
-    if (chartInstance) chartInstance.destroy();
-});
-
-// ─── RECRIA GRÁFICO SE OS DADOS MUDAREM ───
-watch(dadosGrafico, () => {
-    if (!carregando.value) {
-        nextTick(() => criarGrafico());
-    }
-}, { deep: true });
-
-// ─── ESCUTA ATUALIZAÇÕES DE PEDIDOS ───
-window.addEventListener('pedidos-atualizados', () => {
-    pedidos.value = JSON.parse(localStorage.getItem('@delivery:pedidos')) || [];
-});
-
 // ─── ESTOQUE DE BEBIDAS ───
-const bebidas = computed(() => produtos.value.filter(p => p.categoriaId === 'bebidas'));
+const bebidas = computed(() =>
+    produtos.value.filter(p => p.categoriaId === 'bebidas')
+);
+
+const getEstoque = (bebida) => Number(bebida.estoque) || 0;
+
+const estaAtualizando = (id) => estoqueAtualizando.value.has(id);
+
+const ajustarEstoque = async (bebida, delta) => {
+    if (estaAtualizando(bebida.id)) return;
+
+    const novoValor = getEstoque(bebida) + delta;
+    if (novoValor < 0) return;
+
+    // Reatribui o Set para garantir reatividade
+    estoqueAtualizando.value = new Set(estoqueAtualizando.value).add(bebida.id);
+
+    try {
+        await atualizarEstoque(bebida.id, novoValor);
+    } catch (e) {
+        alert('❌ Erro ao atualizar estoque: ' + (e?.message || e));
+    } finally {
+        const novo = new Set(estoqueAtualizando.value);
+        novo.delete(bebida.id);
+        estoqueAtualizando.value = novo;
+    }
+};
 
 // ─── EXPORTAR CSV ───
+const escaparCSV = (valor) => `"${String(valor ?? '').replace(/"/g, '""')}"`;
+
 const exportarCSV = () => {
     if (pedidos.value.length === 0) {
         return alert('Não há pedidos para exportar.');
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "ID do Pedido,Data,Cliente,Total,Status,Pagamento\n";
+    const linhas = [['ID do Pedido', 'Data', 'Cliente', 'Total', 'Status', 'Pagamento'].map(escaparCSV).join(',')];
 
     pedidos.value.forEach(p => {
-        const data = new Date(p.dataCriacao || p.dataPedido).toLocaleString('pt-BR');
-        const nomeCliente = (p.cliente?.nome || 'Desconhecido').replace(/,/g, ' ');
-        const total = (p.valorFinal || p.total || 0).toFixed(2);
-        csvContent += `${p.id},"${data}","${nomeCliente}",${total},${p.status},${p.pagamento}\n`;
+        linhas.push([
+            p.id,
+            dataDoPedido(p).toLocaleString('pt-BR'),
+            p.cliente?.nome || 'Desconhecido',
+            valorDoPedido(p).toFixed(2),
+            p.status,
+            p.pagamento
+        ].map(escaparCSV).join(','));
     });
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `relatorio_vendas_${new Date().toISOString().split('T')[0]}.csv`);
+    // BOM (\uFEFF) para o Excel reconhecer acentos corretamente
+    const blob = new Blob(['\uFEFF' + linhas.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `relatorio_vendas_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 };
 
-const formatarPreco = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+// ─── CICLO DE VIDA ───
+watch(dadosGrafico, () => {
+    if (!carregando.value) nextTick(criarGrafico);
+});
+
+onMounted(async () => {
+    window.addEventListener('pedidos-atualizados', atualizarPedidos);
+
+    atualizarPedidos();
+
+    try {
+        await carregarProdutos();
+    } catch (e) {
+        console.error('Erro ao carregar produtos:', e);
+    } finally {
+        carregando.value = false;
+    }
+
+    await nextTick();
+    criarGrafico();
+});
+
+onUnmounted(() => {
+    window.removeEventListener('pedidos-atualizados', atualizarPedidos);
+    if (chartInstance) chartInstance.destroy();
+});
 </script>
 
 <template>
     <div class="dashboard">
-        <!-- ✅ SKELETON (substitui TUDO) -->
         <SkeletonAdminDashboard v-if="carregando" />
 
-        <!-- ✅ CONTEÚDO REAL (só aparece depois) -->
         <template v-else>
             <header class="page-header">
                 <div>
@@ -223,7 +267,7 @@ const formatarPreco = (valor) => new Intl.NumberFormat('pt-BR', { style: 'curren
             </div>
 
             <div class="layout-grid">
-                <!-- ✅ GRÁFICO COM CHART.JS -->
+                <!-- GRÁFICO -->
                 <div class="card-painel">
                     <h2>Vendas nos Últimos 7 Dias</h2>
                     <div class="grafico-wrapper">
@@ -247,13 +291,22 @@ const formatarPreco = (valor) => new Intl.NumberFormat('pt-BR', { style: 'curren
                             </div>
 
                             <div class="controle-estoque">
-                                <button @click="atualizarEstoque(bebida.id, getEstoque(bebida.id) - 1)">
+                                <button
+                                    :disabled="estaAtualizando(bebida.id) || getEstoque(bebida) <= 0"
+                                    @click="ajustarEstoque(bebida, -1)"
+                                >
                                     <Minus :size="16" />
                                 </button>
-                                <span :class="{ 'alerta': getEstoque(bebida.id) < 5 }">
-                                    {{ getEstoque(bebida.id) }}
+
+                                <Loader2 v-if="estaAtualizando(bebida.id)" :size="16" class="girando" />
+                                <span v-else :class="{ alerta: getEstoque(bebida) < ESTOQUE_BAIXO }">
+                                    {{ getEstoque(bebida) }}
                                 </span>
-                                <button @click="atualizarEstoque(bebida.id, getEstoque(bebida.id) + 1)">
+
+                                <button
+                                    :disabled="estaAtualizando(bebida.id)"
+                                    @click="ajustarEstoque(bebida, 1)"
+                                >
                                     <Plus :size="16" />
                                 </button>
                             </div>
@@ -264,7 +317,6 @@ const formatarPreco = (valor) => new Intl.NumberFormat('pt-BR', { style: 'curren
         </template>
     </div>
 </template>
-
 <style scoped>
 .dashboard { max-width: 1200px; margin: 0 auto; padding: 8px 16px 32px; box-sizing: border-box; }
 

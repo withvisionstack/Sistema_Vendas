@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { MapPin, ChevronDown, ShoppingCart, User } from 'lucide-vue-next';
 import NotificacoesHeader from './NotificacoesHeader.vue';
@@ -7,92 +7,72 @@ import { useCarrinho } from '../../composables/useCarrinho.js';
 import { usePerfil } from '../../composables/usePerfil.js';
 import { useLoja } from '../../composables/useLoja.js';
 
-const emit = defineEmits(['abrir-capa']);
-
 const { totalItens } = useCarrinho();
 const { perfil, enderecoPrincipal } = usePerfil();
 const { configLoja } = useLoja();
 
-// Protege contra configLoja ainda não carregado (undefined/null)
-const loja = computed(() => configLoja.value || {});
+const lojaSegura = computed(() => configLoja.value || {});
 
 const logoEhImagem = computed(() => {
-    const logo = loja.value.logo;
-    return typeof logo === 'string' && (logo.startsWith('http') || logo.startsWith('data:image'));
+    const logo = lojaSegura.value.logo;
+    if (typeof logo !== 'string') return false;
+    return logo.startsWith('http') || logo.startsWith('/') || logo.startsWith('data:image');
 });
 
-const navItems = [
-    { to: '/', label: 'Cardápio', exact: true }, // "/" é prefixo de tudo, então só marca ativo quando exato
-    { to: '/bebidas', label: 'Bebidas' },
-    { to: '/pedidos', label: 'Pedidos' },
-];
-
-const textoPerfil = computed(() => {
-    const nome = perfil.value?.nome?.trim();
-    if (nome) return `Olá, ${nome.split(' ')[0]}`;
-
-    const end = enderecoPrincipal.value;
-    return end ? `${end.rua}, ${end.numero}` : 'Definir endereço';
+const textoEndereco = computed(() => {
+    if (perfil.value?.nome) {
+        return `Olá, ${perfil.value.nome.split(' ')[0]}`;
+    }
+    if (enderecoPrincipal.value) {
+        return `${enderecoPrincipal.value.rua}, ${enderecoPrincipal.value.numero}`;
+    }
+    return 'Definir endereço';
 });
 
-const badgeCarrinho = computed(() => (totalItens.value > 99 ? '99+' : totalItens.value));
+const emit = defineEmits(['abrir-capa']);
 
-const abrirCapaPelaLogo = (event) => {
-    const capa = loja.value.capas?.[0];
-    if (!capa) return; // sem capa: o link segue normalmente para "/"
-
-    event.preventDefault();
-    emit('abrir-capa', capa);
+const abrirCapaPelaLogo = (e) => {
+    e.preventDefault();
+    if (configLoja.value?.capas && configLoja.value.capas.length > 0) {
+        emit('abrir-capa', configLoja.value.capas[0]);
+    }
 };
 </script>
 
 <template>
     <header class="header">
-        <!-- Logo (dinâmica) -->
         <RouterLink to="/" class="logo" @click="abrirCapaPelaLogo">
-            <span class="logo-emoji">
-                <img v-if="logoEhImagem" :src="loja.logo" class="logo-img" alt="" />
-                <span v-else aria-hidden="true">{{ loja.logo || '🍔' }}</span>
-            </span>
-            <span class="logo-nome">{{ loja.nome }}</span>
+            <div class="logo-emoji">
+                <img v-if="logoEhImagem" :src="lojaSegura.logo" class="logo-img" alt="" />
+                <span v-else>{{ lojaSegura.logo || '🍔' }}</span>
+            </div>
+            <span class="logo-nome">{{ lojaSegura.nome || 'Hamburgueria' }}</span>
         </RouterLink>
 
-        <!-- Navegação desktop -->
-        <nav class="nav-desktop" aria-label="Navegação principal">
+        <nav class="nav-desktop">
             <ul>
-                <li v-for="item in navItems" :key="item.to">
-                    <RouterLink
-                        :to="item.to"
-                        :active-class="item.exact ? '' : 'ativo'"
-                        exact-active-class="ativo"
-                    >
-                        {{ item.label }}
-                    </RouterLink>
-                </li>
+                <li><RouterLink to="/">Cardápio</RouterLink></li>
+                <li><RouterLink to="/bebidas">Bebidas</RouterLink></li>
+                <li><RouterLink to="/pedidos">Pedidos</RouterLink></li>
             </ul>
         </nav>
 
-        <!-- Ações à direita -->
         <div class="acoes">
             <RouterLink to="/perfil" class="endereco-btn">
                 <MapPin :size="14" class="icone" />
-                <span class="endereco-texto">{{ textoPerfil }}</span>
+                <span class="endereco-texto">{{ textoEndereco }}</span>
                 <ChevronDown :size="12" class="icone" />
             </RouterLink>
 
-            <RouterLink to="/perfil" class="btn-perfil-desktop" aria-label="Meu perfil">
+            <RouterLink to="/perfil" class="btn-perfil-desktop" aria-label="Meu Perfil">
                 <User :size="20" />
             </RouterLink>
 
             <NotificacoesHeader />
 
-            <RouterLink
-                to="/carrinho"
-                class="carrinho-btn"
-                :aria-label="totalItens > 0 ? `Abrir carrinho, ${totalItens} itens` : 'Abrir carrinho'"
-            >
+            <RouterLink to="/carrinho" class="carrinho-btn" aria-label="Abrir carrinho">
                 <ShoppingCart :size="20" class="icone-carrinho" />
-                <span v-if="totalItens > 0" class="badge" aria-hidden="true">{{ badgeCarrinho }}</span>
+                <span v-if="totalItens > 0" class="badge">{{ totalItens }}</span>
             </RouterLink>
         </div>
     </header>
@@ -100,72 +80,62 @@ const abrirCapaPelaLogo = (event) => {
 
 <style scoped>
 .header {
-    --color-accent: #dc2626;
-    --color-accent-soft: #fef2f2;
-
     position: sticky;
     top: 0;
     z-index: 100;
+    background: #fff;
+    color: #1a1a1a;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    width: 100%;
-    box-sizing: border-box;
     padding: 12px 16px;
-    background: #fff;
-    color: #1a1a1a;
     border-bottom: 1px solid #fee2e2;
     box-shadow: 0 2px 8px rgba(220, 38, 38, 0.08);
+    width: 100%;
+    box-sizing: border-box;
 }
 
-/* ───────────── Logo ───────────── */
 .logo {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-width: 0; /* deixa o nome encolher em vez de empurrar as ações para fora */
-    color: inherit;
+    flex-shrink: 0;
     text-decoration: none;
+    color: inherit;
 }
 
 .logo-emoji {
-    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, #dc2626, #f97316);
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
-    overflow: hidden;
-    background: linear-gradient(135deg, #dc2626, #f97316);
-    border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
     font-size: 18px;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+    overflow: hidden;
 }
 
 .logo-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 50%;
 }
 
 .logo-nome {
-    overflow: hidden;
-    font-size: 16px;
     font-weight: 800;
+    font-size: 16px;
     color: #1a1a1a;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-/* ───────────── Navegação ───────────── */
 .nav-desktop {
     display: none;
 }
 
-/* ───────────── Ações ───────────── */
 .acoes {
-    flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -175,14 +145,15 @@ const abrirCapaPelaLogo = (event) => {
     display: none;
     align-items: center;
     gap: 4px;
-    max-width: 180px;
     padding: 6px 12px;
-    background: var(--color-accent-soft);
-    border: 1px solid #f8f3f3;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
     border-radius: 16px;
-    color: var(--color-accent);
+    color: #dc2626;
     font-size: 12px;
     font-weight: 600;
+    cursor: pointer;
+    max-width: 180px;
     text-decoration: none;
     transition: background 0.2s;
 }
@@ -192,14 +163,14 @@ const abrirCapaPelaLogo = (event) => {
 }
 
 .endereco-texto {
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .icone {
     flex-shrink: 0;
-    color: var(--color-accent);
+    color: #dc2626;
 }
 
 .btn-perfil-desktop {
@@ -208,8 +179,8 @@ const abrirCapaPelaLogo = (event) => {
     justify-content: center;
     width: 40px;
     height: 40px;
-    background: #f5f5f5;
     border-radius: 50%;
+    background: #f5f5f5;
     color: #333;
     text-decoration: none;
     transition: background 0.2s;
@@ -221,13 +192,15 @@ const abrirCapaPelaLogo = (event) => {
 
 .carrinho-btn {
     position: relative;
+    width: 40px;
+    height: 40px;
+    background: #dc2626;
+    border: none;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: var(--color-accent);
-    border-radius: 50%;
+    cursor: pointer;
     text-decoration: none;
     transition: transform 0.1s ease;
 }
@@ -244,32 +217,21 @@ const abrirCapaPelaLogo = (event) => {
     position: absolute;
     top: -4px;
     right: -4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
     min-width: 18px;
     height: 18px;
     padding: 0 4px;
     background: #fff;
-    border: 2px solid var(--color-accent);
+    color: #dc2626;
     border-radius: 9px;
-    color: var(--color-accent);
     font-size: 10px;
     font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #dc2626;
+    box-sizing: border-box;
 }
 
-/* ───────────── Foco (teclado) ───────────── */
-.logo:focus-visible,
-.endereco-btn:focus-visible,
-.btn-perfil-desktop:focus-visible,
-.carrinho-btn:focus-visible,
-.nav-desktop a:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
-}
-
-/* ───────────── Desktop ───────────── */
 @media (min-width: 768px) {
     .header {
         padding: 12px 32px;
@@ -284,23 +246,23 @@ const abrirCapaPelaLogo = (event) => {
     .nav-desktop ul {
         display: flex;
         gap: 32px;
+        list-style: none;
         margin: 0;
         padding: 0;
-        list-style: none;
     }
 
     .nav-desktop a {
-        padding: 6px 2px;
         color: #555;
+        text-decoration: none;
         font-size: 15px;
         font-weight: 600;
-        text-decoration: none;
+        padding: 6px 2px;
         transition: color 0.2s;
     }
 
     .nav-desktop a:hover,
-    .nav-desktop a.ativo {
-        color: var(--color-accent);
+    .nav-desktop a.router-link-active {
+        color: #dc2626;
     }
 
     .endereco-btn,

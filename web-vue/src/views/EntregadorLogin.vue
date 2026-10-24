@@ -11,6 +11,7 @@ const codigo = ref('');
 const carregando = ref(false);
 const erro = ref('');
 
+// ✅ DEPOIS (async)
 const tentarLogin = async () => {
     if (codigo.value.length !== 6) {
         erro.value = 'Digite o código de 6 dígitos';
@@ -20,15 +21,21 @@ const tentarLogin = async () => {
     carregando.value = true;
     erro.value = '';
 
-    await new Promise(r => setTimeout(r, 500));
+    try {
+        const sucesso = await loginPorCodigo(codigo.value);  // ✅ await
 
-    if (loginPorCodigo(codigo.value)) {
-        router.push('/entregador/painel');
-    } else {
-        erro.value = 'Código inválido ou entregador inativo';
-        codigo.value = '';
+        if (sucesso) {
+            router.push('/entregador/painel');
+        } else {
+            erro.value = 'Código inválido ou entregador inativo';
+            codigo.value = '';
+        }
+    } catch (e) {
+        erro.value = 'Erro ao validar código. Tente novamente.';
+        console.error(e);
+    } finally {
+        carregando.value = false;
     }
-    carregando.value = false;
 };
 
 const formatarCodigo = (e) => {

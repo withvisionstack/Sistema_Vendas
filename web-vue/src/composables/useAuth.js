@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 // ═══════════════════════════════════════════════════════════
 // CONFIGURAÇÕES DE SEGURANÇA
 // ═══════════════════════════════════════════════════════════
-const SENHA_PADRAO = 'admin123';
+const SENHA_PADRAO = 'admin1234';
 const ITERACOES_PBKDF2 = 100000;
 const MAX_TENTATIVAS = 5;
 const TEMPO_BLOQUEIO_MS = 15 * 60 * 1000;  // 15 min

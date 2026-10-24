@@ -14,17 +14,28 @@ import ModalLojaFechada from '../components/cliente/ModalLojaFechada.vue';
 
 const router = useRouter();
 const { lojaEstaAberta, configLoja } = useLoja();
-const { produtos } = useProdutos(); // ✅ Puxa do composable
+const { produtos, carregando: carregandoProdutos, carregarProdutos } = useProdutos();
 
 const carregando = ref(true);
 const mostrarModalFechado = ref(false);
 
 // ✅ CORRIGIDO: Use produtos.value.filter (com .value)
-const lanches = computed(() => produtos.value.filter(p => p.categoriaId === 'lanches'));
-const porcoes = computed(() => produtos.value.filter(p => p.categoriaId === 'porcoes'));
+// Computeds
+const lanches = computed(() => 
+    produtos.value.filter(p => p.categoriaId === 'lanches')
+);
+const porcoes = computed(() => 
+    produtos.value.filter(p => p.categoriaId === 'porcoes')
+);
+
+// ✅ NOVO: carrega da API
+onMounted(async () => {
+    await carregarProdutos();
+    carregando.value = false;
+});
 
 
-const selecionarProduto = (produto) => router.push(`/produto/${produto.id}`);
+const selecionarProduto = (produto) => router.push(`/produto/${produto.slug}`);
 
 // ─── CARROSSEL DE CAPAS ───
 const capas = computed(() => configLoja.value?.capas || []);

@@ -8,6 +8,8 @@
  * @param {string} encoded - Polyline codificada
  * @returns {Array<[number, number]>} Array de [lng, lat] (ordem do MapLibre)
  */
+
+
 export function decodificaPolyline(encoded) {
     if (!encoded || typeof encoded !== 'string') {
         return [];

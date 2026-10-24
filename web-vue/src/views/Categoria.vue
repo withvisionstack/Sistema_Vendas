@@ -17,19 +17,26 @@ const props = defineProps({
 const route = useRoute();
 const router = useRouter();
 
-const { produtos } = useProdutos();
+const { produtos, carregarProdutos } = useProdutos();
+const carregando = ref(true);
+
+
 const categoriaId = computed(() => props.categoriaFixa || route.params.id);
 const categoriaAtual = computed(() => categorias.find(c => c.id === categoriaId.value));
 
 // Produtos filtrados pela categoria atual
-const produtosDaCategoria = computed(() => produtos.value.filter(p => p.categoriaId === categoriaId.value));
+const produtosDaCategoria = computed(() => 
+    produtos.value.filter(p => p.categoriaId === categoriaId.value)
+);
+
 
 // Verifica se a tela atual é de bebidas
 const ehBebida = computed(() => categoriaId.value === 'bebidas');
 
-const carregando = ref(true);
-onMounted(() => {
-    setTimeout(() => { carregando.value = false; }, 1000);
+
+onMounted(async () => {
+    await carregarProdutos();
+    carregando.value = false;
 });
 
 const voltar = () => router.back();

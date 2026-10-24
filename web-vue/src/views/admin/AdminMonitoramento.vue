@@ -188,7 +188,7 @@ const atualizarMarcadoresNoMapa = () => {
 
     // Remove marcadores de entregas que já finalizaram
     Object.keys(marcadores).forEach(id => {
-        if (!entregasAtivas.value.find(p => p.id == id)) {
+        if (!entregasAtivas.value.find(p => p.id === id)) {
             marcadores[id].remove();
             delete marcadores[id];
         }
